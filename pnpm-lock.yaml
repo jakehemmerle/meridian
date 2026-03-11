@@ -11,6 +11,12 @@ importers:
       '@coral-xyz/anchor':
         specifier: 0.32.1
         version: 0.32.1(typescript@5.9.3)
+      '@meridian/domain':
+        specifier: workspace:*
+        version: link:packages/domain
+      '@meridian/testkit':
+        specifier: workspace:*
+        version: link:packages/testkit
       '@types/node':
         specifier: 25.4.0
         version: 25.4.0
@@ -79,6 +85,19 @@ importers:
 
   packages/domain:
     devDependencies:
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/testkit:
+    dependencies:
+      '@meridian/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: 25.4.0
+        version: 25.4.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3

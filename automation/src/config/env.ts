@@ -124,3 +124,5 @@ export function validateBootstrapEnv(
     publicKeys,
   };
 }
+
+export type BootstrapEnvValidation = ReturnType<typeof validateBootstrapEnv>;

@@ -1,13 +1,9 @@
 import {
   HERMES_BASE_URL,
-  MERIDIAN_TICKER_FEEDS,
   buildHermesLatestPriceFeedsUrl,
   buildHermesTimestampPriceUpdatesUrl,
-  scalePriceToUsdcMicros,
-  validateSettlementSnapshot,
   type HermesBinaryPriceUpdateResponse,
   type HermesPriceSnapshot,
-  type MeridianTicker,
 } from "@meridian/domain";
 
 type FetchLike = typeof fetch;
@@ -42,16 +38,3 @@ export async function fetchHermesPriceUpdatesAtTimestamp(
 
   return (await response.json()) as HermesBinaryPriceUpdateResponse;
 }
-export {
-  HERMES_BASE_URL,
-  MERIDIAN_TICKER_FEEDS,
-  buildHermesLatestPriceFeedsUrl,
-  buildHermesTimestampPriceUpdatesUrl,
-  scalePriceToUsdcMicros,
-  validateSettlementSnapshot,
-};
-export type {
-  HermesBinaryPriceUpdateResponse,
-  HermesPriceSnapshot,
-  MeridianTicker,
-};

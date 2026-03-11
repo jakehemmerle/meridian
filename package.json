@@ -4,15 +4,18 @@
   "packageManager": "pnpm@10.25.0",
   "scripts": {
     "domain:build": "pnpm --filter @meridian/domain build",
+    "testkit:build": "pnpm --filter @meridian/testkit build",
     "bootstrap:check": "pnpm domain:build && dotenv -e .env -- pnpm exec tsx automation/src/index.ts",
     "build": "pnpm domain:build && anchor build && pnpm --filter @meridian/app build && pnpm --filter @meridian/automation build",
-    "test": "cargo test --manifest-path programs/meridian/Cargo.toml && pnpm domain:build && pnpm exec tsx --test tests/**/*.ts",
-    "typecheck": "pnpm --filter @meridian/domain typecheck && pnpm --filter @meridian/app typecheck && pnpm --filter @meridian/automation typecheck",
+    "test": "cargo test --manifest-path programs/meridian/Cargo.toml && pnpm domain:build && pnpm testkit:build && pnpm exec tsx --test tests/**/*.test.ts",
+    "typecheck": "pnpm --filter @meridian/domain typecheck && pnpm --filter @meridian/testkit typecheck && pnpm --filter @meridian/app typecheck && pnpm --filter @meridian/automation typecheck",
     "dev:web": "pnpm domain:build && dotenv -e .env -- pnpm --filter @meridian/app dev",
     "dev:automation": "pnpm domain:build && dotenv -e .env -- pnpm --filter @meridian/automation dev",
     "deploy:devnet": "dotenv -e .env -- anchor deploy --provider.cluster devnet --program-name meridian --program-keypair keys/meridian-program.json"
   },
   "devDependencies": {
+    "@meridian/domain": "workspace:*",
+    "@meridian/testkit": "workspace:*",
     "@coral-xyz/anchor": "0.32.1",
     "@types/node": "25.4.0",
     "dotenv-cli": "11.0.0",
