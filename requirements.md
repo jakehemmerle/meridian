@@ -9,7 +9,7 @@ Design and build a non-custodial decentralized application that enables trading 
 outcome contracts tied to the daily closing prices of MAG7 US equities (AAPL, MSFT, GOOGL,
 AMZN, NVDA, META, TSLA). Each contract asks a simple question — "Will [STOCK] close
 above [PRICE] today?" — and pays out $1 USDC if yes, $0 if no. Contracts expire same-day
-(0DTE) and settle at 4:00 PM ET using an on-chain price oracle. Users trade two
+(0DTE) at 4:00 PM ET and settle shortly after using an on-chain price oracle. Users trade two
 complementary token types — Yes and No — on an on-chain order book. No KYC, no custody,
 no margin.
 
@@ -24,7 +24,8 @@ Implement the full daily lifecycle:
 
 - Morning: Automated creation of strike-level markets for each of the 7 stocks
 - Intraday: Users trade Yes/No tokens on the order book
-- 4:00 PM ET: Settlement via oracle — each contract resolves to $1 or $0
+- 4:00 PM ET: Trading day ends — minting and order entry halt
+- ~4:05 PM ET: Settlement via oracle — each contract resolves to $1 or $0
 - Post-settlement: Users redeem winning tokens for USDC
 
 ## Business Context & Impact
@@ -173,8 +174,8 @@ Yes book.
 - Sell Yes — The user sells their Yes tokens on the ask side of the order book, receiving USDC.
   This closes their Yes position.
 - Sell No — The user buys a Yes token from the ask side of the order book. Since they already
-  hold a No token, holding both Yes + No = $1.00 worth of redeemable USDC, which
-  closes their No exposure.
+  hold a No token, they then merge Yes + No back into $1.00 USDC, which closes their No
+  exposure.
 
 Key insight: Buy Yes and Sell No are the same side of the book (both are buying Yes tokens).
 Buy No and Sell Yes are the same side of the book (both are selling Yes tokens). One book, four
@@ -292,8 +293,10 @@ out-of-the-money). The most active trading happens at strikes near the current s
 
 - User selects their No position and clicks "Sell No"
 - Under the hood, this buys a Yes token from the ask side of the order book
-- The user now holds Yes + No, which can be redeemed for $1.00, or the system handles
-  the close automatically
+- The baseline implementation is buy Yes, then call merge to burn Yes + No and return
+  $1.00 USDC
+- A later optimization can compose the Yes-buy and merge into one transaction, but the
+  protocol must support merge directly
 - Portfolio updates with realized P&L
 - To the user, this feels like simply selling their No token — the Yes-buy mechanic is
   abstracted away
@@ -319,10 +322,27 @@ out-of-the-money). The most active trading happens at strikes near the current s
 - 8:30 AM ET: Creates contracts and order books for each strike
 - 9:00 AM ET: Markets visible on frontend, minting enabled
 - 9:30 AM ET: US market open, live trading begins
-- 4:00 PM ET: US market close
+- 4:00 PM ET: US market close — minting halts, new order entry halts, Phoenix markets are
+  marked Closed, and any resting orders must already have expired via TTL
 - ~4:05 PM ET: Automation service reads oracle closing price, settles all contracts
 - 4:05 PM ET+: Redemption enabled — winners claim USDC
 - Ongoing: Unredeemed tokens remain redeemable indefinitely
+
+## Lifecycle Rules
+
+- Market close time is 4:00 PM ET for every contract
+- At 4:00 PM ET, `Mint Pair`, `Buy Yes`, `Buy No`, `Sell Yes`, and `Sell No` are no longer
+  available
+- Phoenix orders must be submitted with an expiry at or before 4:00 PM ET so no resting order
+  remains executable after market close
+- At 4:00 PM ET, the automation service closes each Phoenix market so no new orders or
+  cancellations are accepted after the trading day ends
+- Settlement runs after market close as soon as a valid oracle update is available
+- The normal target is to settle within 10 minutes of market close
+- If the oracle is stale or confidence is too wide, the automation service retries every 30
+  seconds for up to 15 minutes
+- If settlement still cannot proceed, `Admin Settle (Override)` becomes available 1 hour after
+  market close and is used only as an emergency fallback
 
 ## Smart Contract Functions
 
@@ -337,6 +357,8 @@ whatever naming convention fits your chain:
 - Add Strike — Admin function to add extra strikes for a stock intraday
 - Mint Pair — Any user deposits $1.00 USDC into the vault, receives 1 Yes token + 1 No
   token
+- Merge Pair — Any user holding matching Yes + No for the same market can burn both
+  tokens before settlement and receive $1.00 USDC from the vault
 - Settle Market — Reads the oracle closing price and writes the binary outcome (Yes
   wins or No wins) to the contract. Can only be called after 4:00 PM ET. Must validate
   oracle data freshness and confidence.
@@ -350,6 +372,8 @@ whatever naming convention fits your chain:
 ## Settlement Logic
 
 - Read the oracle's closing price for the stock
+- For Pyth-based settlement, the closing price is the last regular-session update published at
+  or before 4:00 PM ET
 - For each contract:
   - If closing price ≥ strike price → Yes payout = $1.00, No payout = $0.00
   - If closing price < strike price → Yes payout = $0.00, No payout = $1.00
@@ -362,7 +386,7 @@ whatever naming convention fits your chain:
   account)
 - Yes payout + No payout = $1.00 (at settlement, always)
 - Tokens can only be created via the mint pair function
-- Tokens can only be destroyed via the redeem function
+- Tokens can only be destroyed via the redeem function or the merge pair function
 - Settlement outcome is immutable once written
 
 ## Oracle Integration
@@ -371,15 +395,18 @@ You must choose and integrate a price oracle. Regardless of which oracle you sel
 following behaviors are required:
 
 - Settlement price read: The settle function must read the stock's closing price on-chain
-  from the oracle during the settlement transaction
-- Staleness check: Reject prices older than a defined threshold (e.g., 5 minutes)
+  from the oracle during the settlement transaction. For Pyth, use the last regular-session
+  update published at or before 4:00 PM ET.
+- Staleness check: Reject prices older than a defined threshold (10 minutes is the default for
+  Pyth equities)
 - Confidence check: Reject prices where the oracle's reported confidence band is too
   wide (configurable threshold)
 - Pre-market price read: The automation service reads the previous day's close from the
   oracle (can be off-chain API) to calculate strikes each morning
 - Failure handling: If the oracle is unavailable or unreliable at settlement time, the
-  automation service retries for a defined window (e.g., 15 minutes). If still failing, admin
-  uses the override settle function with a manual price and enforced time delay.
+  automation service retries every 30 seconds for up to 15 minutes. If still failing, admin
+  uses the override settle function with a manual price and a 1-hour enforced time delay from
+  market close.
 
 ## Frontend Application
 

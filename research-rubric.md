@@ -109,18 +109,18 @@ Sources:
 - [Pyth market hours](https://docs.pyth.network/price-feeds/core/market-hours)
 - [Pyth best practices](https://docs.pyth.network/price-feeds/best-practices)
 
-### R5 — Market-State Transitions → ASSUMPTION
+### R5 — Market-State Transitions → DECIDED
 
-**Assumption:** Trading and minting halt at 4:00 PM ET. Resting orders on Phoenix should use `last_valid_unix_timestamp_in_seconds` set to market close time so they auto-expire.
+**Decision:** Trading and minting halt at 4:00 PM ET. Phoenix orders must expire at or before 4:00 PM ET, and automation sets the market status to `Closed` at 4:00 PM ET. No new orders or cancellations are accepted after market close.
 
 **Phoenix primitives available:**
 - Market status enum: `Active(1)`, `PostOnly(2)`, `Paused(3)`, `Closed(4)`, `Tombstoned(5)`
 - Orders support TTL via `last_valid_slot` or `last_valid_unix_timestamp_in_seconds`
 - Market authority can change market status
 
-**Proposed lifecycle:**
+**Lifecycle:**
 1. Market created → status: Active
-2. 4:00 PM ET → automation sets status to Closed (no new orders)
+2. 4:00 PM ET → minting halts, Phoenix orders are no longer valid, automation sets status to Closed
 3. ~4:05 PM ET → settle market (read Pyth, write outcome)
 4. Post-settlement → redemption enabled
 
@@ -130,13 +130,15 @@ Sources:
 
 ### R6 — Sell No and Pair Closing → RESOLVED
 
-**Decision:** Implement a `merge` instruction in our Anchor program. Also, "Sell No" works via buying Yes on Phoenix (user already holds No; now holds Yes+No = $1 redeemable).
+**Decision:** Implement a `merge` instruction in our Anchor program. The baseline "Sell No" flow is buy Yes on Phoenix, then call `merge`. Atomic composition is a later optimization, not a prerequisite for protocol correctness.
 
 **Two paths for closing a No position:**
 
-1. **Sell No (via order book):** User buys a Yes token from Phoenix ask side. Now holds Yes + No → calls `merge` to burn both and receive $1 USDC. Can be composed atomically: CPI buy-Yes on Phoenix + merge, all in one instruction.
+1. **Sell No (baseline):** User buys a Yes token from Phoenix ask side. Now holds Yes + No → calls `merge` to burn both and receive $1 USDC.
 
 2. **Merge instruction (standalone):** Any user holding 1 Yes + 1 No for the same strike can call `merge` to burn both and receive $1 USDC from the vault. This is economically clean and maintains the vault invariant.
+
+3. **Sell No (later optimization):** CPI buy-Yes on Phoenix + `merge` can be composed atomically in one instruction or transaction once the Phoenix integration work is stable.
 
 **For "Buy No" (atomic mint-and-sell):** CPI is proven. Our program mints Yes+No pair, then CPIs into Phoenix to sell Yes at market/limit. User keeps No token. One transaction, one wallet approval.
 
@@ -381,10 +383,10 @@ Sources:
 | R2 — CLOB approach | ✅ Resolved: Phoenix |
 | R3 — Oracle availability | ✅ Resolved: Pyth, all 7 feeds confirmed |
 | R4 — Settlement source of truth | ✅ Resolved: Last Pyth regular-session update |
-| R5 — Market-state transitions | ⚠️ Assumption: Halt at 4 PM, auto-expire orders |
-| R6 — Sell No / pair closing | ✅ Resolved: Merge instruction + atomic CPI |
+| R5 — Market-state transitions | ✅ Decided: Halt at 4 PM, close markets, no post-close orders or cancels |
+| R6 — Sell No / pair closing | ✅ Resolved: Merge instruction; atomic composition optional later |
 
-**All blocking gates are resolved or have documented assumptions. Architecture planning can proceed.**
+**All blocking gates are now resolved or explicitly decided. Architecture planning can proceed.**
 
 ---
 
