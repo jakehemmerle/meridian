@@ -1,6 +1,10 @@
 import { config as loadEnv } from "dotenv";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import {
+  DEFAULT_PUBLIC_SOLANA_CLUSTER,
+  mirroredPublicKeyEnvFields,
+} from "@meridian/domain";
 import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
 
@@ -27,13 +31,6 @@ const envSchema = z.object({
 });
 
 export type MeridianEnv = z.infer<typeof envSchema>;
-
-const mirroredPublicKeyFields = [
-  ["MERIDIAN_PROGRAM_ID", "NEXT_PUBLIC_MERIDIAN_PROGRAM_ID"],
-  ["MERIDIAN_USDC_MINT", "NEXT_PUBLIC_MERIDIAN_USDC_MINT"],
-  ["MERIDIAN_PHOENIX_PROGRAM_ID", "NEXT_PUBLIC_MERIDIAN_PHOENIX_PROGRAM_ID"],
-  ["MERIDIAN_PYTH_RECEIVER_PROGRAM_ID", "NEXT_PUBLIC_MERIDIAN_PYTH_RECEIVER_PROGRAM_ID"],
-] as const;
 
 function assertPublicKey(name: keyof MeridianEnv, value: string) {
   try {
@@ -67,9 +64,9 @@ export function validateBootstrapEnv(
   const cwd = options.cwd ?? process.cwd();
   const parsed = envSchema.parse(source);
 
-  if (parsed.NEXT_PUBLIC_SOLANA_CLUSTER !== "devnet") {
+  if (parsed.NEXT_PUBLIC_SOLANA_CLUSTER !== DEFAULT_PUBLIC_SOLANA_CLUSTER) {
     throw new Error(
-      `NEXT_PUBLIC_SOLANA_CLUSTER must be "devnet" for Meridian bootstrap, received "${parsed.NEXT_PUBLIC_SOLANA_CLUSTER}"`,
+      `NEXT_PUBLIC_SOLANA_CLUSTER must be "${DEFAULT_PUBLIC_SOLANA_CLUSTER}" for Meridian bootstrap, received "${parsed.NEXT_PUBLIC_SOLANA_CLUSTER}"`,
     );
   }
 
@@ -102,7 +99,7 @@ export function validateBootstrapEnv(
     throw new Error("MERIDIAN_PHOENIX_TAKER_FEE_BPS must remain 0 for the V1 invariant model");
   }
 
-  for (const [sharedField, publicField] of mirroredPublicKeyFields) {
+  for (const [sharedField, publicField] of mirroredPublicKeyEnvFields) {
     if (
       assertPublicKey(publicField, parsed[publicField]) !==
       assertPublicKey(sharedField, parsed[sharedField])

@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@meridian/domain": "workspace:*",
     "@solana/web3.js": "1.98.4",
     "dotenv": "17.3.1",
     "zod": "4.3.6"

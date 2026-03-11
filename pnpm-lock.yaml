@@ -26,6 +26,9 @@ importers:
 
   app:
     dependencies:
+      '@meridian/domain':
+        specifier: workspace:*
+        version: link:../packages/domain
       next:
         specifier: 16.1.6
         version: 16.1.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -51,6 +54,9 @@ importers:
 
   automation:
     dependencies:
+      '@meridian/domain':
+        specifier: workspace:*
+        version: link:../packages/domain
       '@solana/web3.js':
         specifier: 1.98.4
         version: 1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
@@ -67,6 +73,12 @@ importers:
       tsx:
         specifier: 4.21.0
         version: 4.21.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/domain:
+    devDependencies:
       typescript:
         specifier: 5.9.3
         version: 5.9.3

@@ -1,3 +1,9 @@
+import {
+  DEFAULT_PUBLIC_SOLANA_CLUSTER,
+  DEVNET_USDC_MINT,
+  MERIDIAN_PROGRAM_ID,
+} from "@meridian/domain";
+
 const stack = [
   { label: "Chain", value: "Solana devnet" },
   { label: "Program", value: "Anchor 0.32.1" },
@@ -14,10 +20,10 @@ const commands = [
 ];
 
 const env = [
-  ["Cluster", process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet"],
+  ["Cluster", process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? DEFAULT_PUBLIC_SOLANA_CLUSTER],
   ["RPC", process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "unset"],
-  ["Program", process.env.NEXT_PUBLIC_MERIDIAN_PROGRAM_ID ?? "unset"],
-  ["USDC", process.env.NEXT_PUBLIC_MERIDIAN_USDC_MINT ?? "unset"],
+  ["Program", process.env.NEXT_PUBLIC_MERIDIAN_PROGRAM_ID ?? MERIDIAN_PROGRAM_ID],
+  ["USDC", process.env.NEXT_PUBLIC_MERIDIAN_USDC_MINT ?? DEVNET_USDC_MINT],
 ];
 
 export default function Page() {
@@ -71,4 +77,3 @@ export default function Page() {
     </main>
   );
 }
-
