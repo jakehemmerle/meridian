@@ -1,9 +1,13 @@
 use anchor_lang::prelude::*;
 
-use crate::{MeridianError, MAX_SUPPORTED_TICKERS, ONE_USDC, ORACLE_FEED_ID_BYTES};
+use crate::{
+    MeridianError, AAPL_FEED_ID, AMZN_FEED_ID, CONFIG_VERSION, GOOGL_FEED_ID,
+    MAX_SUPPORTED_TICKERS, META_FEED_ID, MSFT_FEED_ID, NVDA_FEED_ID, ONE_USDC,
+    ORACLE_FEED_ID_BYTES, TSLA_FEED_ID,
+};
 
 #[cfg(test)]
-use crate::{CONFIG_VERSION, MARKET_VERSION};
+use crate::MARKET_VERSION;
 
 #[account]
 #[derive(Debug, InitSpace)]
@@ -22,6 +26,57 @@ pub struct MeridianConfig {
 
 impl MeridianConfig {
     pub const SPACE: usize = 8 + Self::INIT_SPACE;
+
+    pub fn initialize(
+        &mut self,
+        bump: u8,
+        params: &InitializeConfigParams,
+        signer: Pubkey,
+    ) -> Result<()> {
+        require!(self.version == 0, MeridianError::ConfigAlreadyInitialized);
+        require_keys_eq!(
+            signer,
+            params.admin_authority,
+            MeridianError::InitializeAuthorityMismatch
+        );
+        require!(
+            params.admin_authority != Pubkey::default(),
+            MeridianError::InvalidAdminAuthority
+        );
+        require!(
+            params.operations_authority != Pubkey::default(),
+            MeridianError::InvalidOperationsAuthority
+        );
+        require!(
+            params.usdc_mint != Pubkey::default(),
+            MeridianError::InvalidUsdcMint
+        );
+        require!(
+            params.pyth_receiver_program != Pubkey::default(),
+            MeridianError::InvalidPythReceiverProgram
+        );
+        require!(
+            params.oracle_maximum_age_seconds > 0,
+            MeridianError::InvalidOracleMaximumAge
+        );
+        require!(
+            (1..=10_000).contains(&params.oracle_confidence_limit_bps),
+            MeridianError::InvalidOracleConfidenceLimit
+        );
+
+        self.version = CONFIG_VERSION;
+        self.bump = bump;
+        self.is_paused = false;
+        self.oracle_maximum_age_seconds = params.oracle_maximum_age_seconds;
+        self.oracle_confidence_limit_bps = params.oracle_confidence_limit_bps;
+        self.admin_authority = params.admin_authority;
+        self.operations_authority = params.operations_authority;
+        self.usdc_mint = params.usdc_mint;
+        self.pyth_receiver_program = params.pyth_receiver_program;
+        self.supported_tickers = default_supported_tickers();
+
+        Ok(())
+    }
 
     pub fn assert_protocol_active(&self) -> Result<()> {
         require!(!self.is_paused, MeridianError::ProtocolPaused);
@@ -295,6 +350,16 @@ impl TickerConfig {
     }
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, PartialEq, Eq)]
+pub struct InitializeConfigParams {
+    pub admin_authority: Pubkey,
+    pub operations_authority: Pubkey,
+    pub usdc_mint: Pubkey,
+    pub pyth_receiver_program: Pubkey,
+    pub oracle_maximum_age_seconds: u32,
+    pub oracle_confidence_limit_bps: u16,
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq, InitSpace)]
 pub enum Ticker {
     Aapl,
@@ -320,6 +385,18 @@ pub enum MarketOutcome {
     No,
 }
 
+fn default_supported_tickers() -> [TickerConfig; MAX_SUPPORTED_TICKERS] {
+    [
+        TickerConfig::new(Ticker::Aapl, AAPL_FEED_ID),
+        TickerConfig::new(Ticker::Msft, MSFT_FEED_ID),
+        TickerConfig::new(Ticker::Googl, GOOGL_FEED_ID),
+        TickerConfig::new(Ticker::Amzn, AMZN_FEED_ID),
+        TickerConfig::new(Ticker::Nvda, NVDA_FEED_ID),
+        TickerConfig::new(Ticker::Meta, META_FEED_ID),
+        TickerConfig::new(Ticker::Tsla, TSLA_FEED_ID),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,6 +417,87 @@ mod tests {
             config.feed_id_for_ticker(Ticker::Tsla).unwrap(),
             [17; ORACLE_FEED_ID_BYTES]
         );
+    }
+
+    #[test]
+    fn config_initialization_populates_deterministic_defaults() {
+        let admin_authority = Pubkey::new_unique();
+        let operations_authority = Pubkey::new_unique();
+        let usdc_mint = Pubkey::new_unique();
+        let pyth_receiver_program = Pubkey::new_unique();
+        let mut config = uninitialized_config();
+
+        config
+            .initialize(
+                7,
+                &InitializeConfigParams {
+                    admin_authority,
+                    operations_authority,
+                    usdc_mint,
+                    pyth_receiver_program,
+                    oracle_maximum_age_seconds: TEST_ORACLE_MAXIMUM_AGE_SECONDS,
+                    oracle_confidence_limit_bps: TEST_ORACLE_CONFIDENCE_LIMIT_BPS,
+                },
+                admin_authority,
+            )
+            .unwrap();
+
+        assert_eq!(config.version, CONFIG_VERSION);
+        assert_eq!(config.bump, 7);
+        assert_eq!(config.admin_authority, admin_authority);
+        assert_eq!(config.operations_authority, operations_authority);
+        assert_eq!(config.usdc_mint, usdc_mint);
+        assert_eq!(config.pyth_receiver_program, pyth_receiver_program);
+        assert_eq!(
+            config.feed_id_for_ticker(Ticker::Aapl).unwrap(),
+            AAPL_FEED_ID
+        );
+        assert_eq!(
+            config.feed_id_for_ticker(Ticker::Tsla).unwrap(),
+            TSLA_FEED_ID
+        );
+    }
+
+    #[test]
+    fn config_initialization_rejects_double_init() {
+        let admin_authority = Pubkey::new_unique();
+        let mut config = uninitialized_config();
+        let params = InitializeConfigParams {
+            admin_authority,
+            operations_authority: Pubkey::new_unique(),
+            usdc_mint: Pubkey::new_unique(),
+            pyth_receiver_program: Pubkey::new_unique(),
+            oracle_maximum_age_seconds: TEST_ORACLE_MAXIMUM_AGE_SECONDS,
+            oracle_confidence_limit_bps: TEST_ORACLE_CONFIDENCE_LIMIT_BPS,
+        };
+
+        config.initialize(3, &params, admin_authority).unwrap();
+        let err = config.initialize(4, &params, admin_authority).unwrap_err();
+
+        assert!(err.to_string().contains("already been initialized"));
+    }
+
+    #[test]
+    fn config_initialization_rejects_wrong_authority() {
+        let admin_authority = Pubkey::new_unique();
+        let mut config = uninitialized_config();
+
+        let err = config
+            .initialize(
+                3,
+                &InitializeConfigParams {
+                    admin_authority,
+                    operations_authority: Pubkey::new_unique(),
+                    usdc_mint: Pubkey::new_unique(),
+                    pyth_receiver_program: Pubkey::new_unique(),
+                    oracle_maximum_age_seconds: TEST_ORACLE_MAXIMUM_AGE_SECONDS,
+                    oracle_confidence_limit_bps: TEST_ORACLE_CONFIDENCE_LIMIT_BPS,
+                },
+                Pubkey::new_unique(),
+            )
+            .unwrap_err();
+
+        assert!(err.to_string().contains("signing authority"));
     }
 
     #[test]
@@ -421,6 +579,22 @@ mod tests {
                 TickerConfig::new(Ticker::Meta, [16; ORACLE_FEED_ID_BYTES]),
                 TickerConfig::new(Ticker::Tsla, [17; ORACLE_FEED_ID_BYTES]),
             ],
+        }
+    }
+
+    fn uninitialized_config() -> MeridianConfig {
+        MeridianConfig {
+            version: 0,
+            bump: 0,
+            is_paused: false,
+            oracle_maximum_age_seconds: 0,
+            oracle_confidence_limit_bps: 0,
+            admin_authority: Pubkey::default(),
+            operations_authority: Pubkey::default(),
+            usdc_mint: Pubkey::default(),
+            pyth_receiver_program: Pubkey::default(),
+            supported_tickers: [TickerConfig::new(Ticker::Aapl, [0; ORACLE_FEED_ID_BYTES]);
+                MAX_SUPPORTED_TICKERS],
         }
     }
 

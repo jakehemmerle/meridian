@@ -2,6 +2,22 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum MeridianError {
+    #[msg("The config account has already been initialized.")]
+    ConfigAlreadyInitialized,
+    #[msg("The signing authority does not match the configured admin authority.")]
+    InitializeAuthorityMismatch,
+    #[msg("The admin authority cannot be the default address.")]
+    InvalidAdminAuthority,
+    #[msg("The operations authority cannot be the default address.")]
+    InvalidOperationsAuthority,
+    #[msg("The USDC mint cannot be the default address.")]
+    InvalidUsdcMint,
+    #[msg("The Pyth receiver program cannot be the default address.")]
+    InvalidPythReceiverProgram,
+    #[msg("The oracle maximum age must be positive.")]
+    InvalidOracleMaximumAge,
+    #[msg("The oracle confidence limit must be between 1 and 10_000 bps.")]
+    InvalidOracleConfidenceLimit,
     #[msg("The protocol is paused.")]
     ProtocolPaused,
     #[msg("The market is not accepting trading actions.")]
