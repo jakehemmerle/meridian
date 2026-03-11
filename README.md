@@ -86,5 +86,18 @@ mint/merge, and then settlement/redemption.
   `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`.
 - `pnpm bootstrap:check` fails early if required env vars are missing, if the frontend and shared
   program settings drift, if devnet is not selected, or if the wallet/keypair paths do not exist.
-- This scaffold is intentionally narrow. Protocol state modeling, Phoenix integration, and Pyth
-  settlement logic belong in follow-on issues.
+
+## Phoenix Integration Boundary
+
+- Meridian owns the Yes/No token mints, collateral vault, lifecycle gates, settlement, `merge`,
+  and redemption.
+- Phoenix owns the Yes/USDC order book. The No-side trading experience is derived from the same
+  Yes book rather than a separate No market.
+- The automation layer is responsible for Phoenix market bootstrap and seat workflow on devnet.
+- The current bootstrap contract assumes the Phoenix Seat Manager program
+  `PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1`, zero Phoenix taker fees, and a market authority
+  mode of `seat-manager`.
+- All Phoenix orders for Meridian must expire at or before the Meridian market close. Post-close
+  order entry and cancellation remain follow-on trading work, not bootstrap behavior.
+- This scaffold remains intentionally narrow. The actual Phoenix trading flows and Pyth settlement
+  transactions still land in follow-on issues.

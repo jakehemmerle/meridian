@@ -13,6 +13,9 @@ const envSchema = z.object({
   MERIDIAN_PROGRAM_KEYPAIR: z.string().min(1),
   MERIDIAN_USDC_MINT: z.string().min(1),
   MERIDIAN_PHOENIX_PROGRAM_ID: z.string().min(1),
+  MERIDIAN_PHOENIX_SEAT_MANAGER_PROGRAM_ID: z.string().min(1),
+  MERIDIAN_PHOENIX_TAKER_FEE_BPS: z.coerce.number().int(),
+  MERIDIAN_PHOENIX_MARKET_AUTHORITY_MODE: z.enum(["seat-manager", "market-authority"]),
   MERIDIAN_PYTH_RECEIVER_PROGRAM_ID: z.string().min(1),
   MERIDIAN_PYTH_PRICE_PROGRAM_ID: z.string().min(1),
   NEXT_PUBLIC_SOLANA_CLUSTER: z.string().min(1),
@@ -81,6 +84,10 @@ export function validateBootstrapEnv(
       "MERIDIAN_PHOENIX_PROGRAM_ID",
       parsed.MERIDIAN_PHOENIX_PROGRAM_ID,
     ),
+    phoenixSeatManagerProgramId: assertPublicKey(
+      "MERIDIAN_PHOENIX_SEAT_MANAGER_PROGRAM_ID",
+      parsed.MERIDIAN_PHOENIX_SEAT_MANAGER_PROGRAM_ID,
+    ),
     pythReceiverProgramId: assertPublicKey(
       "MERIDIAN_PYTH_RECEIVER_PROGRAM_ID",
       parsed.MERIDIAN_PYTH_RECEIVER_PROGRAM_ID,
@@ -91,8 +98,15 @@ export function validateBootstrapEnv(
     ),
   };
 
+  if (parsed.MERIDIAN_PHOENIX_TAKER_FEE_BPS !== 0) {
+    throw new Error("MERIDIAN_PHOENIX_TAKER_FEE_BPS must remain 0 for the V1 invariant model");
+  }
+
   for (const [sharedField, publicField] of mirroredPublicKeyFields) {
-    if (assertPublicKey(publicField, parsed[publicField]) !== assertPublicKey(sharedField, parsed[sharedField])) {
+    if (
+      assertPublicKey(publicField, parsed[publicField]) !==
+      assertPublicKey(sharedField, parsed[sharedField])
+    ) {
       throw new Error(`${sharedField} and ${publicField} must match`);
     }
   }

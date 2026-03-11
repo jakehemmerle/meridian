@@ -13,6 +13,9 @@ const VALID_ENV = {
   MERIDIAN_PROGRAM_KEYPAIR: "fixtures/program-keypair.json",
   MERIDIAN_USDC_MINT: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
   MERIDIAN_PHOENIX_PROGRAM_ID: "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY",
+  MERIDIAN_PHOENIX_SEAT_MANAGER_PROGRAM_ID: "PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1",
+  MERIDIAN_PHOENIX_TAKER_FEE_BPS: "0",
+  MERIDIAN_PHOENIX_MARKET_AUTHORITY_MODE: "seat-manager",
   MERIDIAN_PYTH_RECEIVER_PROGRAM_ID: "rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ",
   MERIDIAN_PYTH_PRICE_PROGRAM_ID: "pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT",
   NEXT_PUBLIC_SOLANA_CLUSTER: "devnet",
@@ -59,6 +62,38 @@ test("bootstrap validation rejects non-devnet cluster", () => {
   );
 });
 
+test("bootstrap validation rejects a missing Phoenix seat manager program id", () => {
+  const fixture = withFixturePaths({
+    ...VALID_ENV,
+  });
+
+  const missingEnv = { ...fixture.env };
+  delete missingEnv.MERIDIAN_PHOENIX_SEAT_MANAGER_PROGRAM_ID;
+
+  assert.throws(() => validateBootstrapEnv(missingEnv, { cwd: fixture.cwd }));
+});
+
+test("bootstrap validation rejects nonzero Phoenix taker fees", () => {
+  const fixture = withFixturePaths({
+    ...VALID_ENV,
+    MERIDIAN_PHOENIX_TAKER_FEE_BPS: "5",
+  });
+
+  assert.throws(
+    () => validateBootstrapEnv(fixture.env, { cwd: fixture.cwd }),
+    /MERIDIAN_PHOENIX_TAKER_FEE_BPS must remain 0/,
+  );
+});
+
+test("bootstrap validation rejects unknown Phoenix market authority modes", () => {
+  const fixture = withFixturePaths({
+    ...VALID_ENV,
+    MERIDIAN_PHOENIX_MARKET_AUTHORITY_MODE: "custom-authority",
+  });
+
+  assert.throws(() => validateBootstrapEnv(fixture.env, { cwd: fixture.cwd }));
+});
+
 test("bootstrap validation accepts a complete devnet configuration", () => {
   const fixture = withFixturePaths({
     ...VALID_ENV,
@@ -70,4 +105,10 @@ test("bootstrap validation accepts a complete devnet configuration", () => {
   assert.match(result.resolvedPaths.anchorWalletPath, /anchor-wallet\.json$/);
   assert.match(result.resolvedPaths.programKeypairPath, /program-keypair\.json$/);
   assert.equal(result.publicKeys.programId, VALID_ENV.MERIDIAN_PROGRAM_ID);
+  assert.equal(
+    result.publicKeys.phoenixSeatManagerProgramId,
+    VALID_ENV.MERIDIAN_PHOENIX_SEAT_MANAGER_PROGRAM_ID,
+  );
+  assert.equal(result.env.MERIDIAN_PHOENIX_TAKER_FEE_BPS, 0);
+  assert.equal(result.env.MERIDIAN_PHOENIX_MARKET_AUTHORITY_MODE, "seat-manager");
 });

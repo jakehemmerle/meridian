@@ -14,6 +14,12 @@ async function main() {
     programId: new PublicKey(env.MERIDIAN_PROGRAM_ID).toBase58(),
     usdcMint: new PublicKey(env.MERIDIAN_USDC_MINT).toBase58(),
     phoenixProgramId: new PublicKey(env.MERIDIAN_PHOENIX_PROGRAM_ID).toBase58(),
+    phoenixSeatManagerProgramId: new PublicKey(
+      env.MERIDIAN_PHOENIX_SEAT_MANAGER_PROGRAM_ID,
+    ).toBase58(),
+    phoenixTakerFeeBps: env.MERIDIAN_PHOENIX_TAKER_FEE_BPS,
+    phoenixMarketAuthorityMode: env.MERIDIAN_PHOENIX_MARKET_AUTHORITY_MODE,
+    meridianOrderExpiryRule: "Phoenix orders must expire at or before market close",
     pythReceiverProgramId: new PublicKey(env.MERIDIAN_PYTH_RECEIVER_PROGRAM_ID).toBase58(),
     anchorWalletPath: bootstrap.resolvedPaths.anchorWalletPath,
     programKeypairPath: bootstrap.resolvedPaths.programKeypairPath,
