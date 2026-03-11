@@ -1,7 +1,12 @@
 use anchor_lang::prelude::*;
 
+#[path = "accounts/mod.rs"]
+pub mod account_types;
 pub mod constants;
 pub mod errors;
+pub mod instructions;
+pub mod oracle;
+pub mod phoenix;
 pub mod state;
 
 pub use constants::*;
@@ -21,10 +26,7 @@ pub mod meridian {
         ctx: Context<InitializeConfig>,
         params: InitializeConfigParams,
     ) -> Result<()> {
-        let bump = ctx.bumps.config;
-        ctx.accounts
-            .config
-            .initialize(bump, &params, ctx.accounts.admin_authority.key())
+        instructions::config::initialize_config(ctx, params)
     }
 }
 
