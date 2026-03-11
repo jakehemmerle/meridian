@@ -1,0 +1,10 @@
+pub const CONFIG_SEED: &[u8] = b"config";
+pub const MARKET_SEED: &[u8] = b"market";
+pub const VAULT_SEED: &[u8] = b"vault";
+pub const YES_MINT_SEED: &[u8] = b"yes_mint";
+pub const NO_MINT_SEED: &[u8] = b"no_mint";
+pub const ONE_USDC: u64 = 1_000_000;
+pub const MAX_SUPPORTED_TICKERS: usize = 7;
+pub const ORACLE_FEED_ID_BYTES: usize = 32;
+pub const CONFIG_VERSION: u8 = 1;
+pub const MARKET_VERSION: u8 = 1;
