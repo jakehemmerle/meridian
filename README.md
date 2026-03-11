@@ -20,6 +20,43 @@ documented in `requirements.md`, `research-codex.md`, and `research-rubric.md`.
 - `tests`: workspace smoke tests
 - `keys/meridian-program.json`: Anchor program keypair for local and devnet deploys
 
+## Current Protocol Model
+
+The current program scaffold now treats the protocol boundary as two core accounts:
+
+- `MeridianConfig`: global admin and operations authorities, paused flag, oracle thresholds,
+  pinned USDC mint, pinned Pyth receiver program, and the fixed MAG7 ticker-to-feed mapping
+- `MeridianMarket`: one stock/strike/day market with deterministic lifecycle state, Phoenix
+  market reference, Yes/No mints, collateral vault, oracle feed id, and collateral/open-interest
+  counters
+
+Seed conventions are fixed in the program crate for the next implementation pass:
+
+- `config`
+- `market`
+- `vault`
+- `yes_mint`
+- `no_mint`
+
+The invariant model is intentionally explicit and testable:
+
+- Before settlement, `yes_open_interest` must equal `no_open_interest`
+- Vault collateral must equal outstanding claims at every step
+- `mint` increases both sides and vault claim equally
+- `merge` burns both sides equally and returns the same amount of USDC claim
+- After settlement, only the winning side remains claimable and redemptions reduce both winning
+  open interest and vault liability together
+
+Protocol enforcement versus UI enforcement is also explicit:
+
+- On-chain: collateral accounting, lifecycle transitions, oracle mapping, settlement, and
+  redemption invariants
+- Frontend only: preventing users from intentionally holding both Yes and No as a steady-state
+  trading position
+
+This is the implementation baseline for the next on-chain stories: config init, market creation,
+mint/merge, and then settlement/redemption.
+
 ## Quick Start
 
 1. Copy `.env.example` to `.env`.
