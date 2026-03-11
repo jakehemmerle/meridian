@@ -60,12 +60,17 @@ mint/merge, and then settlement/redemption.
 ## Quick Start
 
 1. Copy `.env.example` to `.env`.
-2. Install JavaScript dependencies with `pnpm install`.
-3. Build the workspace with `pnpm build`.
-4. Run smoke tests with `pnpm test`.
+2. Confirm `ANCHOR_WALLET` points to an existing Solana keypair and keep the shared and
+   `NEXT_PUBLIC_*` values aligned.
+3. Install JavaScript dependencies with `pnpm install`.
+4. Run `pnpm bootstrap:check` to validate the devnet bootstrap configuration before builds or
+   deploys.
+5. Build the workspace with `pnpm build`.
+6. Run smoke tests with `pnpm test`.
 
 ## Core Commands
 
+- `pnpm bootstrap:check`: validate env, keypair paths, program IDs, and devnet targeting
 - `pnpm build`: Anchor build, frontend build, automation build
 - `pnpm test`: Rust unit tests and workspace smoke tests
 - `pnpm typecheck`: frontend and automation type checks
@@ -79,5 +84,7 @@ mint/merge, and then settlement/redemption.
 - The program id is pinned to `2xETnXSFhwUs9c1BJZHwWib2jQMnYdUGL3QbtewVfA2y`.
 - The devnet USDC mint is pinned to Circle's devnet mint:
   `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`.
+- `pnpm bootstrap:check` fails early if required env vars are missing, if the frontend and shared
+  program settings drift, if devnet is not selected, or if the wallet/keypair paths do not exist.
 - This scaffold is intentionally narrow. Protocol state modeling, Phoenix integration, and Pyth
   settlement logic belong in follow-on issues.
