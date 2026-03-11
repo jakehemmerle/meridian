@@ -34,6 +34,12 @@ body {
   padding: 48px 0 64px;
 }
 
+.featureStack {
+  display: grid;
+  gap: 20px;
+  margin-top: 20px;
+}
+
 .hero {
   padding: 40px;
   border: 1px solid var(--line);
@@ -69,6 +75,35 @@ h1 {
   color: var(--muted);
   font-size: 1.05rem;
   line-height: 1.7;
+}
+
+.sectionCopy {
+  margin-bottom: 18px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.heroSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.heroMetric {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.heroMetric p {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .grid {
@@ -154,7 +189,8 @@ code {
   }
 
   .grid,
-  .envGrid {
+  .envGrid,
+  .heroSummary {
     grid-template-columns: 1fr;
   }
 
@@ -162,4 +198,3 @@ code {
     flex-direction: column;
   }
 }
-
