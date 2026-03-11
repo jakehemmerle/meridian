@@ -5,6 +5,13 @@ Updated: 2026-03-10
 This worksheet resolves requirement ambiguities before architecture, systems thinking,
 and implementation planning.
 
+## Cross-File Note
+
+The current resolved entries in this file align with the codex research in
+[research-codex.md](/Users/jake/codebases/gauntlet/hiring-partners/peaksix/research-codex.md).
+In particular, `R2`, `R3`, `R4`, `R6`, and `R7` should be treated as resolved or decided here
+because they were resolved in the codex research pass and then carried into this rubric.
+
 ## Decisions Made
 
 - **Chain:** Solana (committed)
