@@ -80,6 +80,7 @@ Preferred order:
 3. Identify the exact files
 4. Reserve only those files
 5. Implement
+6. Release the reservations with `release_file_reservations` when the work is complete
 
 This is required so multiple agents can work in parallel without unnecessary conflicts.
 
@@ -126,5 +127,6 @@ Before ending a coding session in `peaksix`:
 6. `git pull --rebase`
 7. `git push`
 8. Verify branch state with `git status -sb`
+9. Release any active file reservations with `release_file_reservations`
 
 Do not leave the story status, git state, and remote state out of sync.
