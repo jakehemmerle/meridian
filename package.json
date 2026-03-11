@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.25.0",
   "scripts": {
-    "bootstrap:check": "dotenv -e .env -- pnpm --filter @meridian/automation start",
+    "bootstrap:check": "dotenv -e .env -- pnpm exec tsx automation/src/index.ts",
     "build": "anchor build && pnpm --filter @meridian/app build && pnpm --filter @meridian/automation build",
     "test": "cargo test --manifest-path programs/meridian/Cargo.toml && pnpm exec tsx --test tests/**/*.ts",
     "typecheck": "pnpm --filter @meridian/app typecheck && pnpm --filter @meridian/automation typecheck",

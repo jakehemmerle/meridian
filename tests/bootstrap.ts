@@ -32,7 +32,6 @@ function withFixturePaths(env: NodeJS.ProcessEnv) {
 
   return {
     cwd: fixtureRoot,
-    cleanup: () => undefined,
     env,
   };
 }
@@ -42,14 +41,10 @@ test("bootstrap validation rejects missing env", () => {
     ...VALID_ENV,
   });
 
-  try {
-    const missingEnv = { ...fixture.env };
-    delete missingEnv.MERIDIAN_PROGRAM_ID;
+  const missingEnv = { ...fixture.env };
+  delete missingEnv.MERIDIAN_PROGRAM_ID;
 
-    assert.throws(() => validateBootstrapEnv(missingEnv, { cwd: fixture.cwd }));
-  } finally {
-    fixture.cleanup();
-  }
+  assert.throws(() => validateBootstrapEnv(missingEnv, { cwd: fixture.cwd }));
 });
 
 test("bootstrap validation rejects non-devnet cluster", () => {
@@ -58,14 +53,10 @@ test("bootstrap validation rejects non-devnet cluster", () => {
     NEXT_PUBLIC_SOLANA_CLUSTER: "mainnet-beta",
   });
 
-  try {
-    assert.throws(
-      () => validateBootstrapEnv(fixture.env, { cwd: fixture.cwd }),
-      /NEXT_PUBLIC_SOLANA_CLUSTER must be "devnet"/,
-    );
-  } finally {
-    fixture.cleanup();
-  }
+  assert.throws(
+    () => validateBootstrapEnv(fixture.env, { cwd: fixture.cwd }),
+    /NEXT_PUBLIC_SOLANA_CLUSTER must be "devnet"/,
+  );
 });
 
 test("bootstrap validation accepts a complete devnet configuration", () => {
@@ -73,14 +64,10 @@ test("bootstrap validation accepts a complete devnet configuration", () => {
     ...VALID_ENV,
   });
 
-  try {
-    const result = validateBootstrapEnv(fixture.env, { cwd: fixture.cwd });
+  const result = validateBootstrapEnv(fixture.env, { cwd: fixture.cwd });
 
-    assert.equal(result.env.NEXT_PUBLIC_SOLANA_CLUSTER, "devnet");
-    assert.match(result.resolvedPaths.anchorWalletPath, /anchor-wallet\.json$/);
-    assert.match(result.resolvedPaths.programKeypairPath, /program-keypair\.json$/);
-    assert.equal(result.publicKeys.programId, VALID_ENV.MERIDIAN_PROGRAM_ID);
-  } finally {
-    fixture.cleanup();
-  }
+  assert.equal(result.env.NEXT_PUBLIC_SOLANA_CLUSTER, "devnet");
+  assert.match(result.resolvedPaths.anchorWalletPath, /anchor-wallet\.json$/);
+  assert.match(result.resolvedPaths.programKeypairPath, /program-keypair\.json$/);
+  assert.equal(result.publicKeys.programId, VALID_ENV.MERIDIAN_PROGRAM_ID);
 });

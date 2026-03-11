@@ -4,7 +4,7 @@ import path from "node:path";
 import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
 
-loadEnv({ path: process.env.DOTENV_CONFIG_PATH ?? ".env" });
+loadEnv({ path: process.env.DOTENV_CONFIG_PATH ?? ".env", quiet: true });
 
 const envSchema = z.object({
   SOLANA_RPC_URL: z.string().url(),
@@ -24,6 +24,13 @@ const envSchema = z.object({
 });
 
 export type MeridianEnv = z.infer<typeof envSchema>;
+
+const mirroredPublicKeyFields = [
+  ["MERIDIAN_PROGRAM_ID", "NEXT_PUBLIC_MERIDIAN_PROGRAM_ID"],
+  ["MERIDIAN_USDC_MINT", "NEXT_PUBLIC_MERIDIAN_USDC_MINT"],
+  ["MERIDIAN_PHOENIX_PROGRAM_ID", "NEXT_PUBLIC_MERIDIAN_PHOENIX_PROGRAM_ID"],
+  ["MERIDIAN_PYTH_RECEIVER_PROGRAM_ID", "NEXT_PUBLIC_MERIDIAN_PYTH_RECEIVER_PROGRAM_ID"],
+] as const;
 
 function assertPublicKey(name: keyof MeridianEnv, value: string) {
   try {
@@ -67,53 +74,27 @@ export function validateBootstrapEnv(
     throw new Error("SOLANA_RPC_URL and NEXT_PUBLIC_SOLANA_RPC_URL must match");
   }
 
-  const sharedProgramId = assertPublicKey("MERIDIAN_PROGRAM_ID", parsed.MERIDIAN_PROGRAM_ID);
-  const sharedUsdcMint = assertPublicKey("MERIDIAN_USDC_MINT", parsed.MERIDIAN_USDC_MINT);
-  const sharedPhoenixProgramId = assertPublicKey(
-    "MERIDIAN_PHOENIX_PROGRAM_ID",
-    parsed.MERIDIAN_PHOENIX_PROGRAM_ID,
-  );
-  const sharedPythReceiverProgramId = assertPublicKey(
-    "MERIDIAN_PYTH_RECEIVER_PROGRAM_ID",
-    parsed.MERIDIAN_PYTH_RECEIVER_PROGRAM_ID,
-  );
+  const publicKeys = {
+    programId: assertPublicKey("MERIDIAN_PROGRAM_ID", parsed.MERIDIAN_PROGRAM_ID),
+    usdcMint: assertPublicKey("MERIDIAN_USDC_MINT", parsed.MERIDIAN_USDC_MINT),
+    phoenixProgramId: assertPublicKey(
+      "MERIDIAN_PHOENIX_PROGRAM_ID",
+      parsed.MERIDIAN_PHOENIX_PROGRAM_ID,
+    ),
+    pythReceiverProgramId: assertPublicKey(
+      "MERIDIAN_PYTH_RECEIVER_PROGRAM_ID",
+      parsed.MERIDIAN_PYTH_RECEIVER_PROGRAM_ID,
+    ),
+    pythPriceProgramId: assertPublicKey(
+      "MERIDIAN_PYTH_PRICE_PROGRAM_ID",
+      parsed.MERIDIAN_PYTH_PRICE_PROGRAM_ID,
+    ),
+  };
 
-  if (
-    sharedProgramId !==
-    assertPublicKey("NEXT_PUBLIC_MERIDIAN_PROGRAM_ID", parsed.NEXT_PUBLIC_MERIDIAN_PROGRAM_ID)
-  ) {
-    throw new Error("MERIDIAN_PROGRAM_ID and NEXT_PUBLIC_MERIDIAN_PROGRAM_ID must match");
-  }
-
-  if (
-    sharedUsdcMint !==
-    assertPublicKey("NEXT_PUBLIC_MERIDIAN_USDC_MINT", parsed.NEXT_PUBLIC_MERIDIAN_USDC_MINT)
-  ) {
-    throw new Error("MERIDIAN_USDC_MINT and NEXT_PUBLIC_MERIDIAN_USDC_MINT must match");
-  }
-
-  if (
-    sharedPhoenixProgramId !==
-    assertPublicKey(
-      "NEXT_PUBLIC_MERIDIAN_PHOENIX_PROGRAM_ID",
-      parsed.NEXT_PUBLIC_MERIDIAN_PHOENIX_PROGRAM_ID,
-    )
-  ) {
-    throw new Error(
-      "MERIDIAN_PHOENIX_PROGRAM_ID and NEXT_PUBLIC_MERIDIAN_PHOENIX_PROGRAM_ID must match",
-    );
-  }
-
-  if (
-    sharedPythReceiverProgramId !==
-    assertPublicKey(
-      "NEXT_PUBLIC_MERIDIAN_PYTH_RECEIVER_PROGRAM_ID",
-      parsed.NEXT_PUBLIC_MERIDIAN_PYTH_RECEIVER_PROGRAM_ID,
-    )
-  ) {
-    throw new Error(
-      "MERIDIAN_PYTH_RECEIVER_PROGRAM_ID and NEXT_PUBLIC_MERIDIAN_PYTH_RECEIVER_PROGRAM_ID must match",
-    );
+  for (const [sharedField, publicField] of mirroredPublicKeyFields) {
+    if (assertPublicKey(publicField, parsed[publicField]) !== assertPublicKey(sharedField, parsed[sharedField])) {
+      throw new Error(`${sharedField} and ${publicField} must match`);
+    }
   }
 
   const anchorWalletPath = assertPathExists("ANCHOR_WALLET", parsed.ANCHOR_WALLET, cwd);
@@ -129,19 +110,6 @@ export function validateBootstrapEnv(
       anchorWalletPath,
       programKeypairPath,
     },
-    publicKeys: {
-      programId: sharedProgramId,
-      usdcMint: sharedUsdcMint,
-      phoenixProgramId: sharedPhoenixProgramId,
-      pythReceiverProgramId: sharedPythReceiverProgramId,
-      pythPriceProgramId: assertPublicKey(
-        "MERIDIAN_PYTH_PRICE_PROGRAM_ID",
-        parsed.MERIDIAN_PYTH_PRICE_PROGRAM_ID,
-      ),
-    },
+    publicKeys,
   };
-}
-
-export function loadBootstrapEnv(source: NodeJS.ProcessEnv = process.env) {
-  return validateBootstrapEnv(source).env;
 }

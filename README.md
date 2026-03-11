@@ -63,8 +63,8 @@ mint/merge, and then settlement/redemption.
 2. Confirm `ANCHOR_WALLET` points to an existing Solana keypair and keep the shared and
    `NEXT_PUBLIC_*` values aligned.
 3. Install JavaScript dependencies with `pnpm install`.
-4. Run `pnpm bootstrap:check` to validate the devnet bootstrap configuration before builds or
-   deploys.
+4. Run `pnpm bootstrap:check` to validate the devnet bootstrap configuration directly from source
+   before builds or deploys.
 5. Build the workspace with `pnpm build`.
 6. Run smoke tests with `pnpm test`.
 
