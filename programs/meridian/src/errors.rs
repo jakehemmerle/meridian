@@ -50,6 +50,14 @@ pub enum MeridianError {
     OracleFeedNotConfigured,
     #[msg("The market feed does not match the configured ticker feed.")]
     OracleFeedMismatch,
+    #[msg("The oracle snapshot was published after market close.")]
+    OraclePublishAfterClose,
+    #[msg("The oracle snapshot is too old for the configured maximum age.")]
+    OraclePriceTooOld,
+    #[msg("The oracle confidence band exceeds the configured limit.")]
+    OracleConfidenceTooWide,
+    #[msg("The oracle snapshot price is invalid.")]
+    InvalidOraclePrice,
     #[msg("Open interest must remain balanced before settlement.")]
     OpenInterestInvariantViolated,
     #[msg("The vault collateral accounting is inconsistent with open interest.")]

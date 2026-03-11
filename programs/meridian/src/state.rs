@@ -143,6 +143,44 @@ impl MeridianMarket {
         self.assert_invariants()
     }
 
+    pub fn settlement_price_from_snapshot(
+        &self,
+        config: &MeridianConfig,
+        snapshot: &OraclePriceSnapshot,
+        settlement_ts: i64,
+    ) -> Result<u64> {
+        let configured_feed = config.feed_id_for_ticker(self.ticker)?;
+        require!(
+            snapshot.feed_id == configured_feed && snapshot.feed_id == self.oracle_feed_id,
+            MeridianError::OracleFeedMismatch
+        );
+        require!(
+            snapshot.publish_time <= self.close_time_ts,
+            MeridianError::OraclePublishAfterClose
+        );
+        require!(
+            snapshot
+                .publish_time
+                .saturating_add(i64::from(config.oracle_maximum_age_seconds))
+                >= settlement_ts,
+            MeridianError::OraclePriceTooOld
+        );
+        require!(snapshot.price > 0, MeridianError::InvalidOraclePrice);
+
+        let price = i128::from(snapshot.price);
+        let confidence = i128::from(snapshot.conf);
+        let confidence_bps = confidence
+            .checked_mul(10_000)
+            .ok_or(MeridianError::MathOverflow)?
+            / price;
+        require!(
+            confidence_bps <= i128::from(config.oracle_confidence_limit_bps),
+            MeridianError::OracleConfidenceTooWide
+        );
+
+        scale_oracle_price_to_fixed_point(snapshot.price, snapshot.exponent)
+    }
+
     pub fn close(&mut self, now_ts: i64) -> Result<()> {
         require!(
             self.phase == MarketPhase::Trading,
@@ -361,6 +399,15 @@ pub struct InitializeConfigParams {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq, InitSpace)]
+pub struct OraclePriceSnapshot {
+    pub feed_id: [u8; ORACLE_FEED_ID_BYTES],
+    pub price: i64,
+    pub conf: u64,
+    pub exponent: i32,
+    pub publish_time: i64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq, InitSpace)]
 pub enum Ticker {
     Aapl,
     Msft,
@@ -395,6 +442,21 @@ fn default_supported_tickers() -> [TickerConfig; MAX_SUPPORTED_TICKERS] {
         TickerConfig::new(Ticker::Meta, META_FEED_ID),
         TickerConfig::new(Ticker::Tsla, TSLA_FEED_ID),
     ]
+}
+
+fn scale_oracle_price_to_fixed_point(price: i64, exponent: i32) -> Result<u64> {
+    let scaled = i128::from(price);
+    let decimal_shift = exponent + 6;
+    let scaled = if decimal_shift >= 0 {
+        scaled
+            .checked_mul(10_i128.pow(decimal_shift as u32))
+            .ok_or(MeridianError::MathOverflow)?
+    } else {
+        scaled / 10_i128.pow((-decimal_shift) as u32)
+    };
+
+    require!(scaled > 0, MeridianError::InvalidOraclePrice);
+    u64::try_from(scaled).map_err(|_| MeridianError::MathOverflow.into())
 }
 
 #[cfg(test)]
@@ -559,6 +621,118 @@ mod tests {
         assert!(err.to_string().contains("Open interest"));
     }
 
+    #[test]
+    fn settlement_snapshot_returns_fixed_point_price_when_valid() {
+        let config = test_config(false);
+        let market = closed_market();
+
+        let price = market
+            .settlement_price_from_snapshot(
+                &config,
+                &OraclePriceSnapshot {
+                    feed_id: [11; ORACLE_FEED_ID_BYTES],
+                    price: 20_500_000_000,
+                    conf: 10_000_000,
+                    exponent: -8,
+                    publish_time: market.close_time_ts,
+                },
+                market.settle_after_ts,
+            )
+            .unwrap();
+
+        assert_eq!(price, 205 * ONE_USDC);
+    }
+
+    #[test]
+    fn settlement_snapshot_rejects_wrong_feed() {
+        let config = test_config(false);
+        let market = closed_market();
+
+        let err = market
+            .settlement_price_from_snapshot(
+                &config,
+                &OraclePriceSnapshot {
+                    feed_id: [99; ORACLE_FEED_ID_BYTES],
+                    price: 20_500_000_000,
+                    conf: 10_000_000,
+                    exponent: -8,
+                    publish_time: market.close_time_ts,
+                },
+                market.settle_after_ts,
+            )
+            .unwrap_err();
+
+        assert!(err.to_string().contains("configured ticker feed"));
+    }
+
+    #[test]
+    fn settlement_snapshot_rejects_post_close_publish_time() {
+        let config = test_config(false);
+        let market = closed_market();
+
+        let err = market
+            .settlement_price_from_snapshot(
+                &config,
+                &OraclePriceSnapshot {
+                    feed_id: [11; ORACLE_FEED_ID_BYTES],
+                    price: 20_500_000_000,
+                    conf: 10_000_000,
+                    exponent: -8,
+                    publish_time: market.close_time_ts + 1,
+                },
+                market.settle_after_ts,
+            )
+            .unwrap_err();
+
+        assert!(err.to_string().contains("after market close"));
+    }
+
+    #[test]
+    fn settlement_snapshot_rejects_stale_publish_time() {
+        let config = test_config(false);
+        let market = closed_market();
+
+        let err = market
+            .settlement_price_from_snapshot(
+                &config,
+                &OraclePriceSnapshot {
+                    feed_id: [11; ORACLE_FEED_ID_BYTES],
+                    price: 20_500_000_000,
+                    conf: 10_000_000,
+                    exponent: -8,
+                    publish_time: market.settle_after_ts
+                        - i64::from(TEST_ORACLE_MAXIMUM_AGE_SECONDS)
+                        - 1,
+                },
+                market.settle_after_ts,
+            )
+            .unwrap_err();
+
+        assert!(err.to_string().contains("too old"));
+    }
+
+    #[test]
+    fn settlement_snapshot_rejects_wide_confidence_band() {
+        let config = test_config(false);
+        let market = closed_market();
+
+        let err = market
+            .settlement_price_from_snapshot(
+                &config,
+                &OraclePriceSnapshot {
+                    feed_id: [11; ORACLE_FEED_ID_BYTES],
+                    price: 20_500_000_000,
+                    conf: 1_000_000_000,
+                    exponent: -8,
+                    publish_time: market.close_time_ts,
+                },
+                market.settle_after_ts,
+            )
+            .unwrap_err();
+
+        assert!(err.to_string().contains("confidence band"));
+    }
+
     fn test_config(is_paused: bool) -> MeridianConfig {
         MeridianConfig {
             version: CONFIG_VERSION,
@@ -624,5 +798,11 @@ mod tests {
             settled_price: 0,
             settlement_ts: 0,
         }
+    }
+
+    fn closed_market() -> MeridianMarket {
+        let mut market = test_market();
+        market.phase = MarketPhase::Closed;
+        market
     }
 }
