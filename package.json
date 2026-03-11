@@ -1,0 +1,20 @@
+{
+  "name": "meridian",
+  "private": true,
+  "packageManager": "pnpm@10.25.0",
+  "scripts": {
+    "build": "anchor build && pnpm --filter @meridian/app build && pnpm --filter @meridian/automation build",
+    "test": "cargo test --manifest-path programs/meridian/Cargo.toml && pnpm exec tsx --test tests/**/*.ts",
+    "typecheck": "pnpm --filter @meridian/app typecheck && pnpm --filter @meridian/automation typecheck",
+    "dev:web": "dotenv -e .env -- pnpm --filter @meridian/app dev",
+    "dev:automation": "dotenv -e .env -- pnpm --filter @meridian/automation dev",
+    "deploy:devnet": "dotenv -e .env -- anchor deploy --provider.cluster devnet --program-name meridian --program-keypair keys/meridian-program.json"
+  },
+  "devDependencies": {
+    "@coral-xyz/anchor": "0.32.1",
+    "@types/node": "25.4.0",
+    "dotenv-cli": "11.0.0",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  }
+}
