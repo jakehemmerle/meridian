@@ -337,3 +337,153 @@ fn closed_market() -> MeridianMarket {
     market.phase = MarketPhase::Closed;
     market
 }
+
+// === br-36c: create_market TDD tests ===
+
+#[test]
+fn market_creation_sets_all_initial_fields() {
+    let config = test_config(false);
+    let market = test_market();
+
+    market.assert_can_initialize(&config).unwrap();
+
+    assert_eq!(market.phase, MarketPhase::Trading);
+    assert_eq!(market.outcome, MarketOutcome::Unsettled);
+    assert_eq!(market.yes_open_interest, 0);
+    assert_eq!(market.no_open_interest, 0);
+    assert_eq!(market.total_collateral_deposited, 0);
+    assert_eq!(market.total_collateral_returned, 0);
+    assert_eq!(market.total_winning_redemptions, 0);
+}
+
+#[test]
+fn market_creation_rejects_paused_protocol() {
+    let config = test_config(true);
+    let market = test_market();
+
+    let err = market.assert_can_initialize(&config).unwrap_err();
+    assert!(err.to_string().contains("paused"));
+}
+
+#[test]
+fn market_creation_rejects_sub_dollar_strike() {
+    let config = test_config(false);
+    let mut market = test_market();
+    market.strike_price = ONE_USDC - 1;
+
+    let err = market.assert_can_initialize(&config).unwrap_err();
+    assert!(err.to_string().contains("Strike prices"));
+}
+
+#[test]
+fn market_creation_rejects_invalid_settlement_window() {
+    let config = test_config(false);
+    let mut market = test_market();
+    market.settle_after_ts = market.close_time_ts;
+
+    let err = market.assert_can_initialize(&config).unwrap_err();
+    assert!(err.to_string().contains("settlement window"));
+}
+
+// === br-1xh: mint/merge/pause TDD tests ===
+
+#[test]
+fn mint_pair_increases_both_oi_and_collateral() {
+    let config = test_config(false);
+    let mut market = test_market();
+    market.assert_can_initialize(&config).unwrap();
+
+    market.record_mint(&config, 5).unwrap();
+
+    assert_eq!(market.yes_open_interest, 5);
+    assert_eq!(market.no_open_interest, 5);
+    assert_eq!(market.total_collateral_deposited, 5);
+}
+
+#[test]
+fn mint_pair_rejects_zero_amount() {
+    let config = test_config(false);
+    let mut market = test_market();
+
+    let err = market.record_mint(&config, 0).unwrap_err();
+    assert!(err.to_string().contains("Pair amounts"));
+}
+
+#[test]
+fn mint_pair_rejects_paused_protocol() {
+    let config = test_config(true);
+    let mut market = test_market();
+
+    let err = market.record_mint(&config, 5).unwrap_err();
+    assert!(err.to_string().contains("paused"));
+}
+
+#[test]
+fn mint_pair_rejects_non_trading_phase() {
+    let config = test_config(false);
+    let mut market = closed_market();
+
+    let err = market.record_mint(&config, 5).unwrap_err();
+    assert!(err.to_string().contains("not accepting trading"));
+}
+
+#[test]
+fn merge_pair_decreases_oi_returns_collateral() {
+    let config = test_config(false);
+    let mut market = test_market();
+    market.record_mint(&config, 5).unwrap();
+
+    market.record_merge(&config, 2).unwrap();
+
+    assert_eq!(market.yes_open_interest, 3);
+    assert_eq!(market.no_open_interest, 3);
+    assert_eq!(market.total_collateral_returned, 2);
+}
+
+#[test]
+fn merge_pair_rejects_insufficient_oi() {
+    let config = test_config(false);
+    let mut market = test_market();
+    market.record_mint(&config, 3).unwrap();
+
+    let err = market.record_merge(&config, 4).unwrap_err();
+    assert!(err.to_string().contains("yes-side open interest"));
+}
+
+#[test]
+fn merge_pair_rejects_after_settlement() {
+    let config = test_config(false);
+    let mut market = test_market();
+    market.record_mint(&config, 5).unwrap();
+    market.close(market.close_time_ts).unwrap();
+    market
+        .settle(210 * ONE_USDC, market.settle_after_ts)
+        .unwrap();
+
+    let err = market.record_merge(&config, 1).unwrap_err();
+    assert!(err.to_string().contains("already settled"));
+}
+
+#[test]
+fn merge_pair_rejects_paused_protocol() {
+    let config_active = test_config(false);
+    let config_paused = test_config(true);
+    let mut market = test_market();
+    market.record_mint(&config_active, 5).unwrap();
+
+    let err = market.record_merge(&config_paused, 1).unwrap_err();
+    assert!(err.to_string().contains("paused"));
+}
+
+// === br-19h: add_strike TDD tests ===
+
+#[test]
+fn add_strike_creates_valid_market_same_day_different_strike() {
+    let config = test_config(false);
+    let mut market = test_market();
+    market.strike_price = 250 * ONE_USDC;
+
+    market.assert_can_initialize(&config).unwrap();
+    assert_eq!(market.phase, MarketPhase::Trading);
+    assert_eq!(market.outcome, MarketOutcome::Unsettled);
+}

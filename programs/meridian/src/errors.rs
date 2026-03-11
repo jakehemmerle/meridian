@@ -72,4 +72,6 @@ pub enum MeridianError {
     SettlementMetadataMissing,
     #[msg("Arithmetic overflow or underflow detected.")]
     MathOverflow,
+    #[msg("Cannot add a strike after the market close time has passed.")]
+    MarketClosedForTrading,
 }
