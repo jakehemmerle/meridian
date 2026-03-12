@@ -10,11 +10,13 @@
   },
   "dependencies": {
     "@meridian/domain": "workspace:*",
+    "@solana/spl-token": "0.4.13",
     "@solana/web3.js": "1.98.4",
     "dotenv": "17.3.1",
     "zod": "4.3.6"
   },
   "devDependencies": {
+    "@ellipsis-labs/phoenix-sdk": "^2.0.3",
     "@types/node": "25.4.0",
     "tsx": "4.21.0",
     "typescript": "5.9.3"
