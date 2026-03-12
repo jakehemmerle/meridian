@@ -341,13 +341,15 @@ describe(
     test("seat approval via market authority (ChangeSeatStatus)", async () => {
       const trader = payer;
       const seat = getSeatAddress(phoenixMarketPubkey, trader.publicKey);
+
       const logAuthority = getLogAuthority();
 
       // ChangeSeatStatus discriminant = 104
-      // Data: [104, status_u64_le] where 1 = Approved
-      const ixData = Buffer.alloc(9);
+      // Data: [104, status_u8] where 1 = Approved
+      // Phoenix uses fixedScalarEnum (u8) for SeatApprovalStatus on the wire
+      const ixData = Buffer.alloc(2);
       ixData.writeUInt8(104, 0);
-      ixData.writeBigUInt64LE(1n, 1); // SeatApprovalStatus::Approved
+      ixData.writeUInt8(1, 1); // SeatApprovalStatus::Approved
 
       const ix = new TransactionInstruction({
         programId: PHOENIX_PROGRAM_ID,

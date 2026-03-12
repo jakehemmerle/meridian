@@ -17,12 +17,16 @@ wallet = "~/.config/solana/id.json"
 
 [test.validator]
 url = "https://api.devnet.solana.com"
+bind_address = "127.0.0.1"
 
 [[test.validator.clone]]
 address = "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY"
 
 [[test.validator.clone]]
 address = "PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1"
+
+[scripts]
+test = "pnpm exec tsx --test tests/integration/program/phoenix-bootstrap.test.ts"
 
 [workspace]
 members = ["programs/meridian"]
