@@ -8,6 +8,7 @@ pub const MAX_SUPPORTED_TICKERS: usize = 7;
 pub const ORACLE_FEED_ID_BYTES: usize = 32;
 pub const CONFIG_VERSION: u8 = 1;
 pub const MARKET_VERSION: u8 = 1;
+pub const ADMIN_OVERRIDE_DELAY_SECONDS: i64 = 3600;
 
 pub const AAPL_FEED_ID: [u8; ORACLE_FEED_ID_BYTES] = [
     73, 246, 182, 92, 177, 222, 107, 16, 234, 247, 94, 124, 3, 202, 2, 156, 48, 109, 3, 87, 233,

@@ -74,4 +74,6 @@ pub enum MeridianError {
     MathOverflow,
     #[msg("Cannot add a strike after the market close time has passed.")]
     MarketClosedForTrading,
+    #[msg("Admin override cannot be called until 1 hour after market close.")]
+    AdminOverrideTooEarly,
 }

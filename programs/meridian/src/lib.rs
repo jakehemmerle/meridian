@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
+use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 
 use instructions::market::CreateMarketParams;
 
@@ -59,6 +60,17 @@ pub mod meridian {
         params: CreateMarketParams,
     ) -> Result<()> {
         instructions::add_strike::add_strike(ctx, params)
+    }
+
+    pub fn settle_market(ctx: Context<SettleMarket>) -> Result<()> {
+        instructions::settle::settle_market(ctx)
+    }
+
+    pub fn admin_settle_override(
+        ctx: Context<AdminSettleOverride>,
+        override_price: u64,
+    ) -> Result<()> {
+        instructions::settle::admin_settle_override(ctx, override_price)
     }
 }
 
@@ -288,6 +300,37 @@ pub struct AddStrike<'info> {
     pub usdc_mint: Box<Account<'info, Mint>>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct SettleMarket<'info> {
+    #[account(
+        seeds = [CONFIG_SEED],
+        bump = config.bump,
+    )]
+    pub config: Box<Account<'info, MeridianConfig>>,
+    #[account(
+        mut,
+        has_one = config,
+    )]
+    pub market: Box<Account<'info, MeridianMarket>>,
+    pub price_update: Account<'info, PriceUpdateV2>,
+}
+
+#[derive(Accounts)]
+pub struct AdminSettleOverride<'info> {
+    pub admin_authority: Signer<'info>,
+    #[account(
+        seeds = [CONFIG_SEED],
+        bump = config.bump,
+        has_one = admin_authority,
+    )]
+    pub config: Box<Account<'info, MeridianConfig>>,
+    #[account(
+        mut,
+        has_one = config,
+    )]
+    pub market: Box<Account<'info, MeridianMarket>>,
 }
 
 #[cfg(test)]

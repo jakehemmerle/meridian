@@ -137,6 +137,25 @@ impl MeridianMarket {
         self.assert_invariants()
     }
 
+    pub fn auto_close_if_needed(&mut self, now_ts: i64) -> Result<()> {
+        if self.phase == MarketPhase::Trading && now_ts >= self.close_time_ts {
+            self.close(now_ts)?;
+        }
+        Ok(())
+    }
+
+    pub fn assert_override_eligible(&self, now_ts: i64) -> Result<()> {
+        require!(
+            self.phase == MarketPhase::Closed,
+            MeridianError::MarketNotClosed
+        );
+        require!(
+            now_ts >= self.close_time_ts + crate::ADMIN_OVERRIDE_DELAY_SECONDS,
+            MeridianError::AdminOverrideTooEarly
+        );
+        Ok(())
+    }
+
     pub fn settle(&mut self, settled_price: u64, now_ts: i64) -> Result<()> {
         require!(
             self.phase == MarketPhase::Closed,

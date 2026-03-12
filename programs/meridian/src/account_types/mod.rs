@@ -11,3 +11,5 @@ pub type MintPairAccounts<'info> = crate::MintPair<'info>;
 pub type MergePairAccounts<'info> = crate::MergePair<'info>;
 pub type PauseProtocolAccounts<'info> = crate::PauseProtocol<'info>;
 pub type AddStrikeAccounts<'info> = crate::AddStrike<'info>;
+pub type SettleMarketAccounts<'info> = crate::SettleMarket<'info>;
+pub type AdminSettleOverrideAccounts<'info> = crate::AdminSettleOverride<'info>;
