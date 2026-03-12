@@ -35,23 +35,6 @@ Treat these as fixed unless a new issue explicitly changes them:
 - `Sell No` baseline: buy Yes, then `merge`
 - `merge` is a required protocol primitive, not a frontend workaround
 
-## Roadmap Structure
-
-The work hierarchy is:
-
-1. Foundation epic: `br-guy`
-2. Roadmap umbrella epic: `br-2a9`
-3. Feature epics:
-   - `br-378` on-chain market engine
-   - `br-2xe` Phoenix trading and four trade flows
-   - `br-2gm` oracle settlement and redemption
-   - `br-29f` daily automation and market operations
-   - `br-3ar` trader-facing frontend experience
-   - `br-3h0` devnet deployment, testing, and demo readiness
-4. Child stories under each feature epic
-
-When starting work, operate at the story level, not the epic level.
-
 ## Onboarding Flow
 
 Use this sequence when picking up work:
@@ -59,30 +42,11 @@ Use this sequence when picking up work:
 1. Read the required docs listed above
 2. Inspect current issue state:
    - `br ready --json`
-   - `br show br-2a9 --json`
    - `br show <epic-id> --json`
    - `br show <story-id> --json`
 3. Explore the codebase enough to identify the smallest likely write surface
-4. Only after file discovery:
-   - register or continue the agent session in `peaksix`
-   - reserve only the files or globs you actually expect to edit
-   - mark the story `in_progress`
+4. Mark the story `in_progress`
 5. Start by writing the first failing test described in the story's `TDD starting point`
-
-## File Reservation Policy
-
-Do not reserve broad paths before you know what you are changing.
-
-Preferred order:
-
-1. Select the story
-2. Read the relevant code
-3. Identify the exact files
-4. Reserve only those files
-5. Implement
-6. Release the reservations with `release_file_reservations` when the work is complete
-
-This is required so multiple agents can work in parallel without unnecessary conflicts.
 
 ## TDD Workflow
 
@@ -103,18 +67,6 @@ Layering guidance:
 - Frontend: behavior tests, not snapshot-heavy tests
 - Demo readiness: smoke tests last
 
-## Recommended Starting Stories
-
-If no higher-priority assignment exists, start here:
-
-1. `br-1le` initialize program config and authority model
-2. `br-36c` create strike markets with vaults and token mints
-3. `br-1xh` support mint, merge, and pause with invariant checks
-4. `br-15f` implement Pyth price adapter and validation rules
-5. `br-3ic` implement settlement and override instructions
-
-These stories establish the core protocol before Phoenix UI and automation layers depend on it.
-
 ## Session Close
 
 Before ending a coding session in `peaksix`:
@@ -127,6 +79,5 @@ Before ending a coding session in `peaksix`:
 6. `git pull --rebase`
 7. `git push`
 8. Verify branch state with `git status -sb`
-9. Release any active file reservations with `release_file_reservations`
 
 Do not leave the story status, git state, and remote state out of sync.
