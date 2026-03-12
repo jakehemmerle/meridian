@@ -40,13 +40,14 @@ Treat these as fixed unless a new issue explicitly changes them:
 Use this sequence when picking up work:
 
 1. Read the required docs listed above
-2. Inspect current issue state:
+2. Pull latest and check `.reservations/*.json` for active claims before selecting work
+3. Inspect current issue state:
    - `br ready --json`
    - `br show <epic-id> --json`
    - `br show <story-id> --json`
-3. Explore the codebase enough to identify the smallest likely write surface
-4. Mark the story `in_progress`
-5. Start by writing the first failing test described in the story's `TDD starting point`
+4. Explore the codebase enough to identify the smallest likely write surface
+5. Mark the story `in_progress`
+6. Start by writing the first failing test described in the story's `TDD starting point`
 
 ## TDD Workflow
 
@@ -71,6 +72,7 @@ Layering guidance:
 
 Before ending a coding session in `peaksix`:
 
+0. Delete your `.reservations/{your-agent-name}.json`, commit, and push the deletion
 1. Run the relevant tests
 2. Update or close the Beads issue
 3. `br sync --flush-only`
@@ -81,3 +83,84 @@ Before ending a coding session in `peaksix`:
 8. Verify branch state with `git status -sb`
 
 Do not leave the story status, git state, and remote state out of sync.
+
+## Multi-Agent Coordination
+
+When multiple agents work in this repo concurrently, use the `.reservations/` directory to avoid merge conflicts on shared files.
+
+### Module Ownership Table
+
+| Module | Primary Path | Shared Config Touched |
+|--------|-------------|----------------------|
+| Anchor program | `programs/meridian/src/` | `Cargo.toml`, `programs/meridian/Cargo.toml`, `Anchor.toml` |
+| Frontend | `app/src/` | `app/package.json`, root `package.json` |
+| Automation | `automation/src/` | `automation/package.json`, root `package.json` |
+| Domain types | `packages/domain/src/` | `packages/domain/package.json` |
+| Test kit | `packages/testkit/src/` | `packages/testkit/package.json` |
+| Integration tests | `tests/` | root `package.json` |
+
+### Dangerous Shared Files
+
+These require a reservation before editing:
+
+- `Cargo.toml`, `Cargo.lock`
+- `package.json`, `pnpm-lock.yaml`
+- `Anchor.toml`
+- `programs/meridian/Cargo.toml`
+- `pnpm-workspace.yaml`, `tsconfig.base.json`
+- `.env.example`
+- `packages/domain/src/index.ts`
+
+### Reservation Protocol
+
+**Claim flow:**
+
+1. `git pull --rebase` to get latest reservations.
+2. Read all `.reservations/*.json` files. Check for conflicts with your intended files. Skip any with `expires_at` in the past.
+3. If no conflict, create `.reservations/{your-agent-name}.json`:
+   ```json
+   {
+     "agent": "{your-agent-name}",
+     "issue": "br-{id}",
+     "files": ["path/to/file.rs", "other/file.ts"],
+     "claimed_at": "2026-03-12T15:30:00Z",
+     "expires_at": "2026-03-12T16:30:00Z",
+     "reason": "br-{id}: short description"
+   }
+   ```
+4. Commit and push the reservation file immediately (standalone commit: `chore: reserve files for br-{id}`).
+5. If push fails due to remote changes, pull and re-check for conflicts before retrying.
+
+**TTL guidelines:**
+
+- Module-internal files: 10 minutes (`expires_at` = claimed_at + 600s)
+- Shared/dangerous config files: 2 minutes (`expires_at` = claimed_at + 120s). Edit → commit → push → release immediately.
+- Renew by updating `expires_at` and pushing if you need more time.
+
+**Release flow:**
+
+1. Delete your `.reservations/{your-agent-name}.json` file.
+2. Commit and push (standalone commit: `chore: release reservations for br-{id}`).
+
+**Conflict handling:**
+
+- If your intended files overlap with an active (non-expired) reservation, do NOT proceed. Either:
+  - Pick a different Beads issue that doesn't conflict.
+  - Wait and re-check after the reservation expires.
+  - If the reservation looks stale (agent crashed, well past expiry), delete it and claim yours.
+
+**Expired reservation cleanup:** Any agent may delete reservation files where `expires_at` is in the past. Include cleanup in the same commit as your own reservation if convenient.
+
+### Shared-File Editing Protocol
+
+For dangerous shared files, minimize the hold window:
+
+1. Reserve the file (short TTL, 600s).
+2. `git pull --rebase`.
+3. Make the edit.
+4. Commit the shared-file change as a standalone commit.
+5. `git push`.
+6. Release the reservation immediately.
+7. Continue with your other work.
+
+If `git push` is rejected due to lock file conflicts (`pnpm-lock.yaml`, `Cargo.lock`), accept the remote version and regenerate (`pnpm install` or `cargo check`).
