@@ -173,6 +173,24 @@ test("genuine error alongside existing → partial status, error surfaces", asyn
   assert.ok(errorStrikes[0].error!.includes("insufficient SOL"));
 });
 
+test("phoenix 'already in use' treated as idempotent, not error", async () => {
+  const deps = makeMockDeps({
+    createPhoenixMarket: async () => {
+      throw new Error("already initialized");
+    },
+  });
+
+  const result = await runMorningJob(deps);
+
+  assert.equal(result.status, "success");
+  for (const tr of result.tickerResults) {
+    assert.equal(tr.status, "success", `${tr.ticker} should succeed`);
+    for (const sr of tr.strikes) {
+      assert.equal(sr.status, "exists", `strike ${sr.strikePrice} should be 'exists'`);
+    }
+  }
+});
+
 test("result correctly reports partial success counts", async () => {
   const deps = makeMockDeps();
   const result = await runMorningJob(deps);
