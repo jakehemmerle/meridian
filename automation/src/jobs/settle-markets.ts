@@ -1,7 +1,6 @@
 import type { HermesPriceSnapshot, MeridianTicker } from "@meridian/domain";
 import { retryWithBackoff } from "./retry.js";
-import type { JobStatus, FailureCode } from "./types.js";
-import { FAILURE_CODES } from "./types.js";
+import { FAILURE_CODES, getErrorMessage, type JobStatus, type FailureCode } from "./types.js";
 
 export interface ActiveMarket {
   ticker: string;
@@ -89,7 +88,7 @@ export async function runSettleMarketsJob(
           strikePrice: market.strikePrice,
           meridianMarket: market.meridianMarket,
           status: "error",
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorMessage(err),
           failureCode: FAILURE_CODES.SETTLEMENT_TX_FAILED,
         };
       }

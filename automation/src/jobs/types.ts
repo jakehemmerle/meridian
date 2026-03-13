@@ -1,5 +1,9 @@
 export type JobStatus = "success" | "partial" | "error";
 
+export function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 export type { RetryConfig } from "./retry.js";
 
 export const FAILURE_CODES = {

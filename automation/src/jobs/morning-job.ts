@@ -8,7 +8,7 @@ import {
   getTradingDaySchedule,
 } from "@meridian/domain";
 
-import type { JobStatus } from "./types.js";
+import { getErrorMessage, type JobStatus } from "./types.js";
 
 export interface MorningJobDeps {
   fetchPriceSnapshots: (feedIds: readonly string[]) => Promise<HermesPriceSnapshot[]>;
@@ -94,7 +94,7 @@ export async function runMorningJob(deps: MorningJobDeps): Promise<MorningJobRes
         ticker,
         status: "error",
         strikes: [],
-        error: err instanceof Error ? err.message : String(err),
+        error: getErrorMessage(err),
       });
       continue;
     }
@@ -130,7 +130,7 @@ export async function runMorningJob(deps: MorningJobDeps): Promise<MorningJobRes
           return {
             strikePrice,
             status: "error",
-            error: err instanceof Error ? err.message : String(err),
+            error: getErrorMessage(err),
           };
         }
       }),
