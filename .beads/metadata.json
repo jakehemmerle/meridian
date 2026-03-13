@@ -1,9 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_server_host": "127.0.0.1",
-  "dolt_server_port": 3308,
-  "dolt_database": "peaksix",
-  "project_id": "92be8fa6-6a62-47eb-9a47-9305482ecb60"
-}
