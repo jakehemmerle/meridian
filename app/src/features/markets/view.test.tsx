@@ -29,4 +29,30 @@ describe("MarketDiscoveryList", () => {
     expect(screen.getByText("BTC-50K")).toBeInTheDocument();
     expect(screen.getByText("ETH-4K")).toBeInTheDocument();
   });
+
+  it("shows empty message when no markets", () => {
+    render(<MarketDiscoveryList markets={[]} loading={false} />);
+    expect(screen.getByText("No markets available.")).toBeInTheDocument();
+  });
+
+  it("shows loading indicator when loading", () => {
+    render(<MarketDiscoveryList markets={[]} loading={true} />);
+    expect(screen.getByText("Loading markets...")).toBeInTheDocument();
+  });
+
+  it("renders market with null yesPriceMicros without crashing", () => {
+    const marketWithNullPrice: MarketSummary[] = [
+      {
+        id: "m3",
+        ticker: "SOL-200",
+        strikePriceMicros: 200_000_000n,
+        tradingDay: 20260312,
+        yesPriceMicros: null,
+        closeTimeTs: 1741824000,
+      },
+    ];
+    render(<MarketDiscoveryList markets={marketWithNullPrice} loading={false} />);
+    expect(screen.getByText("SOL-200")).toBeInTheDocument();
+    expect(screen.queryByText(/Yes:/)).not.toBeInTheDocument();
+  });
 });
