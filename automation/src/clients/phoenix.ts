@@ -21,6 +21,9 @@ import {
 export const PHOENIX_MARKET_STATUS = {
   ACTIVE: 1,
   POST_ONLY: 2,
+  PAUSED: 3,
+  CLOSED: 4,
+  TOMBSTONED: 5,
 } as const;
 
 /** Derive Phoenix vault PDA: seeds = ["vault", market, mint] */
@@ -252,6 +255,49 @@ export async function getMarketHeader(
   const headerBuf = accountInfo.data.subarray(0, headerSize);
   const [header] = marketHeaderBeet.deserialize(Buffer.from(headerBuf));
   return header;
+}
+
+/**
+ * Build a ChangeMarketStatus instruction for a Phoenix market.
+ * Discriminant 103, status byte at offset 1.
+ */
+export function buildChangeMarketStatusIx(
+  phoenixMarket: PublicKey,
+  authority: PublicKey,
+  status: number,
+): TransactionInstruction {
+  const data = Buffer.alloc(2);
+  data.writeUInt8(103, 0); // ChangeMarketStatus discriminant
+  data.writeUInt8(status, 1);
+
+  const logAuthority = getLogAuthority();
+
+  return new TransactionInstruction({
+    programId: PHOENIX_PROGRAM_ID,
+    keys: [
+      { pubkey: PHOENIX_PROGRAM_ID, isWritable: false, isSigner: false },
+      { pubkey: logAuthority, isWritable: false, isSigner: false },
+      { pubkey: phoenixMarket, isWritable: true, isSigner: false },
+      { pubkey: authority, isWritable: false, isSigner: true },
+    ],
+    data,
+  });
+}
+
+/**
+ * Send a ChangeMarketStatus transaction.
+ */
+export async function changePhoenixMarketStatus(
+  connection: Connection,
+  authority: Keypair,
+  phoenixMarket: PublicKey,
+  status: number,
+): Promise<string> {
+  const ix = buildChangeMarketStatusIx(phoenixMarket, authority.publicKey, status);
+  const tx = new Transaction().add(ix);
+  const sig = await connection.sendTransaction(tx, [authority]);
+  await connection.confirmTransaction(sig, "confirmed");
+  return sig;
 }
 
 export interface PhoenixMarketValidation {
