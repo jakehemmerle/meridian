@@ -76,8 +76,8 @@ for TEST_FILE in "${TEST_FILES[@]}"; do
     --reset \
     --bind-address 127.0.0.1 \
     --url "$DEVNET_URL" \
-    --clone "$PHOENIX_PROGRAM" \
-    --clone "$PHOENIX_PSM" \
+    --clone-upgradeable-program "$PHOENIX_PROGRAM" \
+    --clone-upgradeable-program "$PHOENIX_PSM" \
     --quiet &
 
   VALIDATOR_PID=$!

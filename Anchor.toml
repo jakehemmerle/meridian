@@ -19,10 +19,10 @@ wallet = "~/.config/solana/id.json"
 url = "https://api.devnet.solana.com"
 bind_address = "127.0.0.1"
 
-[[test.validator.clone]]
+[[test.validator.clone_upgradeable_program]]
 address = "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY"
 
-[[test.validator.clone]]
+[[test.validator.clone_upgradeable_program]]
 address = "PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1"
 
 [scripts]
