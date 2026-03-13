@@ -125,6 +125,29 @@ test("all markets already exist → job succeeds with 'exists' status on all str
   }
 });
 
+test("mixed new + existing markets → job succeeds with mixed strike statuses", async () => {
+  let callCount = 0;
+  const deps = makeMockDeps({
+    createMarketOnChain: async (_ticker, _strike, _tradingDay) => {
+      callCount++;
+      if (callCount === 1) {
+        return { meridianMarket: "market-pda", yesMint: "yes-mint-pda" };
+      }
+      throw new Error("Account already in use");
+    },
+  });
+
+  const result = await runMorningJob(deps);
+
+  assert.equal(result.status, "success");
+  // Should have both "success" and "exists" strikes across all tickers
+  const allStrikes = result.tickerResults.flatMap((tr) => tr.strikes);
+  const successStrikes = allStrikes.filter((s) => s.status === "success");
+  const existsStrikes = allStrikes.filter((s) => s.status === "exists");
+  assert.ok(successStrikes.length > 0, "should have at least one new market");
+  assert.ok(existsStrikes.length > 0, "should have at least one existing market");
+});
+
 test("result correctly reports partial success counts", async () => {
   const deps = makeMockDeps();
   const result = await runMorningJob(deps);
