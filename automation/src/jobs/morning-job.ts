@@ -29,7 +29,7 @@ export interface MorningJobDeps {
 
 export interface StrikeResult {
   strikePrice: number;
-  status: "success" | "error";
+  status: "success" | "exists" | "error";
   meridianMarket?: string;
   yesMint?: string;
   phoenixMarket?: string;
@@ -49,6 +49,11 @@ export interface MorningJobResult {
   job: "morning-job";
   detail: string;
   tickerResults: TickerResult[];
+}
+
+function isAlreadyExistsError(err: unknown): boolean {
+  const msg = getErrorMessage(err).toLowerCase();
+  return msg.includes("already in use") || msg.includes("already initialized");
 }
 
 export async function runMorningJob(deps: MorningJobDeps): Promise<MorningJobResult> {
@@ -127,6 +132,9 @@ export async function runMorningJob(deps: MorningJobDeps): Promise<MorningJobRes
             phoenixMarket,
           };
         } catch (err) {
+          if (isAlreadyExistsError(err)) {
+            return { strikePrice, status: "exists" };
+          }
           return {
             strikePrice,
             status: "error",
@@ -136,7 +144,7 @@ export async function runMorningJob(deps: MorningJobDeps): Promise<MorningJobRes
       }),
     );
 
-    const allSuccess = strikeResults.every((s) => s.status === "success");
+    const allSuccess = strikeResults.every((s) => s.status === "success" || s.status === "exists");
     const allError = strikeResults.every((s) => s.status === "error");
 
     tickerResults.push({

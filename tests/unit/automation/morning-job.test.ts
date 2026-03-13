@@ -107,6 +107,24 @@ test("market creation failure for one strike does not block other strikes", asyn
   assert.ok(hasPartial, "should have at least one ticker with mixed strike results");
 });
 
+test("all markets already exist → job succeeds with 'exists' status on all strikes", async () => {
+  const deps = makeMockDeps({
+    createMarketOnChain: async () => {
+      throw new Error("Account already in use");
+    },
+  });
+
+  const result = await runMorningJob(deps);
+
+  assert.equal(result.status, "success");
+  for (const tr of result.tickerResults) {
+    assert.equal(tr.status, "success", `${tr.ticker} should be success when all strikes exist`);
+    for (const sr of tr.strikes) {
+      assert.equal(sr.status, "exists", `strike ${sr.strikePrice} should have status 'exists'`);
+    }
+  }
+});
+
 test("result correctly reports partial success counts", async () => {
   const deps = makeMockDeps();
   const result = await runMorningJob(deps);
