@@ -9,3 +9,13 @@ export const disconnectedWalletState: WalletConnectionState = {
   isConnected: false,
   isConnecting: false,
 };
+
+export const connectingWalletState: WalletConnectionState = {
+  address: null,
+  isConnected: false,
+  isConnecting: true,
+};
+
+export function connectedWalletState(address: string): WalletConnectionState {
+  return { address, isConnected: true, isConnecting: false };
+}
