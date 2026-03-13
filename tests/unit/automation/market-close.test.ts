@@ -6,6 +6,10 @@ import {
   PHOENIX_MARKET_STATUS,
   buildChangeMarketStatusIx,
 } from "../../../automation/src/clients/phoenix.js";
+import {
+  runMarketCloseJob,
+  type MarketCloseJobDeps,
+} from "../../../automation/src/jobs/close-markets.js";
 
 const FAKE_MARKET = Keypair.generate().publicKey;
 const FAKE_AUTHORITY = Keypair.generate().publicKey;
@@ -38,4 +42,52 @@ test("buildChangeMarketStatusIx: account keys are phoenix program, log authority
   const authorityKey = ix.keys.find((k) => k.pubkey.equals(FAKE_AUTHORITY));
   assert.ok(authorityKey, "authority key should be present");
   assert.equal(authorityKey!.isSigner, true);
+});
+
+// --- runMarketCloseJob tests ---
+
+function makeMockCloseDeps(
+  overrides: Partial<MarketCloseJobDeps> = {},
+): MarketCloseJobDeps {
+  return {
+    activeMarkets: [
+      { ticker: "AAPL", strikePrice: 230, meridianMarket: "aapl-meridian-pda", phoenixMarket: "aapl-phoenix-pda" },
+      { ticker: "META", strikePrice: 680, meridianMarket: "meta-meridian-pda", phoenixMarket: "meta-phoenix-pda" },
+    ],
+    closePhoenixMarket: async () => ({ txSignature: "phoenix-close-sig" }),
+    closeMeridianMarket: async () => ({ txSignature: "meridian-close-sig" }),
+    ...overrides,
+  };
+}
+
+test("happy path: closes all active markets successfully", async () => {
+  const phoenixCalls: string[] = [];
+  const meridianCalls: string[] = [];
+
+  const deps = makeMockCloseDeps({
+    closePhoenixMarket: async (phoenixMarket) => {
+      phoenixCalls.push(phoenixMarket);
+      return { txSignature: `phoenix-sig-${phoenixMarket}` };
+    },
+    closeMeridianMarket: async (meridianMarket) => {
+      meridianCalls.push(meridianMarket);
+      return { txSignature: `meridian-sig-${meridianMarket}` };
+    },
+  });
+
+  const result = await runMarketCloseJob(deps);
+
+  assert.equal(result.status, "success");
+  assert.equal(result.job, "close-markets");
+  assert.equal(result.closures.length, 2);
+
+  for (const c of result.closures) {
+    assert.equal(c.status, "success");
+    assert.ok(c.phoenixTxSignature);
+    assert.ok(c.meridianTxSignature);
+  }
+
+  // Phoenix should be closed before Meridian (order matters)
+  assert.equal(phoenixCalls.length, 2);
+  assert.equal(meridianCalls.length, 2);
 });
