@@ -49,7 +49,6 @@ test("happy path: fetches prices, generates strikes, creates markets for all tic
 });
 
 test("oracle failure for one ticker does not block others", async () => {
-  let callCount = 0;
   const deps = makeMockDeps({
     fetchPriceSnapshots: async (ids) => {
       // Return snapshots but with one bad ticker (META)

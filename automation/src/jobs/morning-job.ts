@@ -109,13 +109,23 @@ export async function runMorningJob(deps: MorningJobDeps): Promise<MorningJobRes
 
     const strikeResults = await Promise.all(
       strikePrices.map(async (strikePrice): Promise<StrikeResult> => {
+        let meridianMarket: string | undefined;
+        let yesMint: string | undefined;
+
         try {
-          const { meridianMarket, yesMint } = await createMarketOnChain(
+          ({ meridianMarket, yesMint } = await createMarketOnChain(
             ticker,
             strikePrice,
             schedule.marketCloseUtc,
-          );
+          ));
+        } catch (err) {
+          if (isAlreadyExistsError(err)) {
+            return { strikePrice, status: "exists" };
+          }
+          return { strikePrice, status: "error", error: getErrorMessage(err) };
+        }
 
+        try {
           const { phoenixMarket } = await createPhoenixMarket(
             ticker,
             strikePrice,
@@ -133,13 +143,9 @@ export async function runMorningJob(deps: MorningJobDeps): Promise<MorningJobRes
           };
         } catch (err) {
           if (isAlreadyExistsError(err)) {
-            return { strikePrice, status: "exists" };
+            return { strikePrice, status: "exists", meridianMarket, yesMint };
           }
-          return {
-            strikePrice,
-            status: "error",
-            error: getErrorMessage(err),
-          };
+          return { strikePrice, status: "error", error: getErrorMessage(err), meridianMarket, yesMint };
         }
       }),
     );
