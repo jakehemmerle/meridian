@@ -32,11 +32,26 @@ export interface SettlementResult {
   failureCode?: FailureCode;
 }
 
+export interface EscalationMarket {
+  ticker: string;
+  strikePrice: number;
+  meridianMarket: string;
+  failureCode: FailureCode;
+  error: string;
+  adminOverrideAvailableAfterTs: number;
+}
+
+export interface EscalationSignal {
+  requiresAdminOverride: boolean;
+  failedMarkets: EscalationMarket[];
+}
+
 export interface SettleMarketsJobResult {
   status: JobStatus;
   job: "settle-markets";
   detail: string;
   settlements: SettlementResult[];
+  escalation?: EscalationSignal;
 }
 
 export async function runSettleMarketsJob(
@@ -99,10 +114,32 @@ export async function runSettleMarketsJob(
   const allError = settlements.every((s) => s.status === "error");
   const successCount = settlements.filter((s) => s.status === "success").length;
 
+  const failedSettlements = settlements.filter((s) => s.status === "error");
+  const escalation: EscalationSignal | undefined =
+    failedSettlements.length > 0
+      ? {
+          requiresAdminOverride: true,
+          failedMarkets: failedSettlements.map((s) => {
+            const market = activeMarkets.find(
+              (m) => m.meridianMarket === s.meridianMarket,
+            )!;
+            return {
+              ticker: s.ticker,
+              strikePrice: s.strikePrice,
+              meridianMarket: s.meridianMarket,
+              failureCode: s.failureCode!,
+              error: s.error!,
+              adminOverrideAvailableAfterTs: market.marketCloseUtc + 3600,
+            };
+          }),
+        }
+      : undefined;
+
   return {
     status: allSuccess ? "success" : allError ? "error" : "partial",
     job: "settle-markets",
     detail: `Settled ${successCount}/${settlements.length} markets.`,
     settlements,
+    escalation,
   };
 }

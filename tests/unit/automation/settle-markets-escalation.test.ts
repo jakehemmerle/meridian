@@ -7,6 +7,10 @@ import { makeHermesSnapshot } from "@meridian/testkit";
 import {
   makeValidatedFetchSettlementPrice,
 } from "../../../automation/src/jobs/settlement-deps.js";
+import {
+  runSettleMarketsJob,
+  type SettleMarketsDeps,
+} from "../../../automation/src/jobs/settle-markets.js";
 
 const AAPL_FEED = MERIDIAN_TICKER_FEEDS.AAPL;
 const MARKET_CLOSE_UTC = 1_763_504_400;
@@ -69,4 +73,78 @@ test("makeValidatedFetchSettlementPrice passes valid snapshots through", async (
   const result = await fetch("AAPL", MARKET_CLOSE_UTC);
   assert.equal(result.id, AAPL_FEED);
   assert.equal(result.price.price, "23000000000");
+});
+
+// --- Escalation signal tests ---
+
+function makeMockDeps(overrides: Partial<SettleMarketsDeps> = {}): SettleMarketsDeps {
+  return {
+    activeMarkets: [
+      {
+        ticker: "AAPL",
+        strikePrice: 230,
+        meridianMarket: "aapl-market-pda",
+        marketCloseUtc: MARKET_CLOSE_UTC,
+      },
+      {
+        ticker: "META",
+        strikePrice: 680,
+        meridianMarket: "meta-market-pda",
+        marketCloseUtc: MARKET_CLOSE_UTC,
+      },
+    ],
+    fetchSettlementPrice: async (ticker) => {
+      return makeHermesSnapshot(ticker as keyof typeof MERIDIAN_TICKER_FEEDS, {
+        publish_time: MARKET_CLOSE_UTC - 60,
+      });
+    },
+    settleMarketOnChain: async () => {
+      return { settled: true, txSignature: "fake-sig" };
+    },
+    retryConfig: { maxDurationMs: 100, baseDelayMs: 10 },
+    ...overrides,
+  };
+}
+
+test("all markets fail → escalation with requiresAdminOverride and failed markets", async () => {
+  const deps = makeMockDeps({
+    fetchSettlementPrice: async () => {
+      throw new Error("Oracle permanently down");
+    },
+    retryConfig: { maxDurationMs: 50, baseDelayMs: 10 },
+  });
+
+  const result = await runSettleMarketsJob(deps);
+  assert.equal(result.status, "error");
+  assert.ok(result.escalation, "should have escalation signal");
+  assert.equal(result.escalation!.requiresAdminOverride, true);
+  assert.equal(result.escalation!.failedMarkets.length, 2);
+
+  for (const fm of result.escalation!.failedMarkets) {
+    assert.equal(fm.adminOverrideAvailableAfterTs, MARKET_CLOSE_UTC + 3600);
+  }
+});
+
+test("all markets succeed → no escalation", async () => {
+  const result = await runSettleMarketsJob(makeMockDeps());
+  assert.equal(result.status, "success");
+  assert.equal(result.escalation, undefined);
+});
+
+test("mixed results → escalation.failedMarkets only contains failures", async () => {
+  const deps = makeMockDeps({
+    settleMarketOnChain: async (market) => {
+      if (market.ticker === "META") {
+        throw new Error("META settlement failed");
+      }
+      return { settled: true, txSignature: "aapl-sig" };
+    },
+  });
+
+  const result = await runSettleMarketsJob(deps);
+  assert.equal(result.status, "partial");
+  assert.ok(result.escalation, "should have escalation for partial failure");
+  assert.equal(result.escalation!.requiresAdminOverride, true);
+  assert.equal(result.escalation!.failedMarkets.length, 1);
+  assert.equal(result.escalation!.failedMarkets[0].ticker, "META");
 });
