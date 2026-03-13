@@ -68,6 +68,18 @@ mint/merge, and then settlement/redemption.
 5. Build the workspace with `pnpm build`.
 6. Run smoke tests with `pnpm test`.
 
+## Local Validator
+
+When running a local validator (`solana-test-validator` or `anchor localnet`), ensure the Solana CLI
+config matches your Anchor setup:
+
+```bash
+solana config set --url http://127.0.0.1:8899 --keypair ~/.config/solana/id.json
+```
+
+Without this, CLI commands like `solana program show` and `solana airdrop` will fail with signer or
+connection errors even though the validator is running correctly.
+
 ## Core Commands
 
 - `pnpm bootstrap:check`: validate env, keypair paths, program IDs, and devnet targeting
