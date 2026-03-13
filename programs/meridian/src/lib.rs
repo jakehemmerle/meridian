@@ -77,6 +77,10 @@ pub mod meridian {
     pub fn trade_yes(ctx: Context<TradeYes>, params: OrderParams) -> Result<()> {
         instructions::trade_yes::trade_yes(ctx, params)
     }
+
+    pub fn redeem(ctx: Context<Redeem>, pairs: u64) -> Result<()> {
+        instructions::redeem::redeem(ctx, pairs)
+    }
 }
 
 // --- Account Contexts ---
@@ -380,6 +384,47 @@ pub struct TradeYes<'info> {
     /// CHECK: Constrained to Phoenix program ID.
     #[account(address = crate::phoenix::phoenix_program_id())]
     pub phoenix_program: UncheckedAccount<'info>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct Redeem<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(
+        seeds = [CONFIG_SEED],
+        bump = config.bump,
+    )]
+    pub config: Box<Account<'info, MeridianConfig>>,
+    #[account(
+        mut,
+        has_one = config,
+        has_one = vault,
+        has_one = yes_mint,
+        has_one = no_mint,
+    )]
+    pub market: Box<Account<'info, MeridianMarket>>,
+    #[account(mut)]
+    pub vault: Box<Account<'info, TokenAccount>>,
+    #[account(mut)]
+    pub yes_mint: Box<Account<'info, Mint>>,
+    #[account(mut)]
+    pub no_mint: Box<Account<'info, Mint>>,
+    #[account(
+        mut,
+        token::authority = user,
+    )]
+    pub user_usdc: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        token::mint = yes_mint,
+    )]
+    pub user_yes: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        token::mint = no_mint,
+    )]
+    pub user_no: Box<Account<'info, TokenAccount>>,
     pub token_program: Program<'info, Token>,
 }
 

@@ -3,6 +3,7 @@ pub mod config;
 pub mod market;
 pub mod merge_pair;
 pub mod mint_pair;
+pub mod redeem;
 pub mod pause;
 pub mod settle;
 pub mod trade_yes;
