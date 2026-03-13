@@ -3,6 +3,10 @@ import {
   parsePhoenixOrderBook,
   type RawPhoenixBook,
 } from "./orderbook";
+import {
+  createOrderBookProcessor,
+  type OrderBookState,
+} from "./use-orderbook";
 
 describe("parsePhoenixOrderBook", () => {
   it("parses mock Phoenix bid/ask entries into OrderBookLadder", () => {
@@ -44,9 +48,6 @@ describe("parsePhoenixOrderBook", () => {
   });
 
   it("converts Phoenix tick/lot units to USDC micros correctly", () => {
-    // With tickSize = 1000 quote lots per base unit per tick:
-    // price in USDC micros = priceInTicks * tickSizeInQuoteLotsPerBaseUnit
-    // sizeLots = sizeInBaseLots (lot size = 1_000_000 = 1 base unit)
     const raw: RawPhoenixBook = {
       bids: [{ priceInTicks: 500, sizeInBaseLots: 3_000_000 }],
       asks: [],
@@ -60,5 +61,61 @@ describe("parsePhoenixOrderBook", () => {
     expect(ladder.bids[0].priceMicros).toBe(500_000);
     // 3_000_000 base lots / 1_000_000 lot size = 3 lots
     expect(ladder.bids[0].sizeLots).toBe(3);
+  });
+});
+
+// --- Order book processor tests (extracted hook logic) ---
+
+const SAMPLE_RAW: RawPhoenixBook = {
+  bids: [{ priceInTicks: 700, sizeInBaseLots: 10_000_000 }],
+  asks: [{ priceInTicks: 800, sizeInBaseLots: 5_000_000 }],
+  tickSizeInQuoteLotsPerBaseUnit: 1000,
+  baseLotSize: 1_000_000,
+};
+
+describe("createOrderBookProcessor", () => {
+  it("initial state: ladder is null, status is connecting", () => {
+    const processor = createOrderBookProcessor(5000);
+    const state = processor.getState();
+
+    expect(state.yesLadder).toBeNull();
+    expect(state.noLadder).toBeNull();
+    expect(state.status).toBe("connecting");
+  });
+
+  it("processUpdate updates ladder and status to connected", () => {
+    const processor = createOrderBookProcessor(5000);
+    processor.processUpdate(SAMPLE_RAW);
+    const state = processor.getState();
+
+    expect(state.status).toBe("connected");
+    expect(state.yesLadder).not.toBeNull();
+    expect(state.yesLadder!.bids).toHaveLength(1);
+    expect(state.yesLadder!.bids[0].priceMicros).toBe(700_000);
+    expect(state.noLadder).not.toBeNull();
+    // No-side: Yes ask 800_000 → No bid 200_000
+    expect(state.noLadder!.bids[0].priceMicros).toBe(200_000);
+  });
+
+  it("no update within threshold transitions status to stale", () => {
+    let fakeNow = 1000;
+    const processor = createOrderBookProcessor(5000, () => fakeNow);
+
+    processor.processUpdate(SAMPLE_RAW);
+    expect(processor.getState().status).toBe("connected");
+
+    // Advance past staleness threshold
+    fakeNow = 7000;
+    processor.checkStaleness();
+
+    expect(processor.getState().status).toBe("stale");
+  });
+
+  it("cleanup is callable", () => {
+    const cleanupCalled: number[] = [];
+    const processor = createOrderBookProcessor(5000);
+    processor.addCleanup(() => cleanupCalled.push(1));
+    processor.cleanup();
+    expect(cleanupCalled).toEqual([1]);
   });
 });
