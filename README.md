@@ -85,6 +85,10 @@ connection errors even though the validator is running correctly.
 - `pnpm bootstrap:check`: validate env, keypair paths, program IDs, and devnet targeting
 - `pnpm build`: Anchor build, frontend build, automation build
 - `pnpm test`: Rust unit tests and workspace smoke tests
+- `pnpm test:unit`: domain and automation unit tests only
+- `pnpm test:frontend`: frontend component tests (vitest)
+- `pnpm test:integration:full`: run all program integration tests, each with a
+  fresh local validator (resets between suites because they share a config PDA)
 - `pnpm typecheck`: frontend and automation type checks
 - `pnpm dev:web`: start the Next.js frontend with root `.env`
 - `pnpm dev:automation`: start the automation service with root `.env`
