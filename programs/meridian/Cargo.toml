@@ -16,6 +16,12 @@ no-idl = []
 no-log-ix-name = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+  'cfg(feature, values("anchor-debug", "custom-heap", "custom-panic"))',
+  'cfg(target_os, values("solana"))',
+] }
+
 [dependencies]
 anchor-lang = { workspace = true }
 anchor-spl = { workspace = true, features = ["token"] }

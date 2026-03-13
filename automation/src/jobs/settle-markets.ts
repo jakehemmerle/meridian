@@ -1,6 +1,7 @@
 import type { HermesPriceSnapshot, MeridianTicker } from "@meridian/domain";
 import { retryWithBackoff } from "./retry.js";
-import type { JobStatus } from "./types.js";
+import type { JobStatus, FailureCode } from "./types.js";
+import { FAILURE_CODES } from "./types.js";
 
 export interface ActiveMarket {
   ticker: string;
@@ -29,7 +30,7 @@ export interface SettlementResult {
   status: "success" | "error";
   txSignature?: string;
   error?: string;
-  failureCode?: string;
+  failureCode?: FailureCode;
 }
 
 export interface SettleMarketsJobResult {
@@ -52,48 +53,48 @@ export async function runSettleMarketsJob(
   }
 
   const { activeMarkets, fetchSettlementPrice, settleMarketOnChain, retryConfig } = deps;
-  const settlements: SettlementResult[] = [];
 
-  for (const market of activeMarkets) {
-    // Step 1: Fetch settlement price with retry
-    const priceResult = await retryWithBackoff(
-      () => fetchSettlementPrice(market.ticker, market.marketCloseUtc),
-      retryConfig,
-    );
+  const settlements = await Promise.all(
+    activeMarkets.map(async (market): Promise<SettlementResult> => {
+      // Step 1: Fetch settlement price with retry
+      const priceResult = await retryWithBackoff(
+        () => fetchSettlementPrice(market.ticker, market.marketCloseUtc),
+        retryConfig,
+      );
 
-    if (!priceResult.ok) {
-      settlements.push({
-        ticker: market.ticker,
-        strikePrice: market.strikePrice,
-        meridianMarket: market.meridianMarket,
-        status: "error",
-        error: priceResult.error.message,
-        failureCode: "ORACLE_FETCH_FAILED",
-      });
-      continue;
-    }
+      if (!priceResult.ok) {
+        return {
+          ticker: market.ticker,
+          strikePrice: market.strikePrice,
+          meridianMarket: market.meridianMarket,
+          status: "error",
+          error: priceResult.error.message,
+          failureCode: FAILURE_CODES.ORACLE_FETCH_FAILED,
+        };
+      }
 
-    // Step 2: Settle on-chain
-    try {
-      const { txSignature } = await settleMarketOnChain(market, priceResult.value);
-      settlements.push({
-        ticker: market.ticker,
-        strikePrice: market.strikePrice,
-        meridianMarket: market.meridianMarket,
-        status: "success",
-        txSignature,
-      });
-    } catch (err) {
-      settlements.push({
-        ticker: market.ticker,
-        strikePrice: market.strikePrice,
-        meridianMarket: market.meridianMarket,
-        status: "error",
-        error: err instanceof Error ? err.message : String(err),
-        failureCode: "SETTLEMENT_TX_FAILED",
-      });
-    }
-  }
+      // Step 2: Settle on-chain
+      try {
+        const { txSignature } = await settleMarketOnChain(market, priceResult.value);
+        return {
+          ticker: market.ticker,
+          strikePrice: market.strikePrice,
+          meridianMarket: market.meridianMarket,
+          status: "success",
+          txSignature,
+        };
+      } catch (err) {
+        return {
+          ticker: market.ticker,
+          strikePrice: market.strikePrice,
+          meridianMarket: market.meridianMarket,
+          status: "error",
+          error: err instanceof Error ? err.message : String(err),
+          failureCode: FAILURE_CODES.SETTLEMENT_TX_FAILED,
+        };
+      }
+    }),
+  );
 
   const allSuccess = settlements.every((s) => s.status === "success");
   const allError = settlements.every((s) => s.status === "error");

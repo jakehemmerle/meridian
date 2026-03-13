@@ -58,7 +58,11 @@ Expected pattern:
 1. Write a failing test at the correct layer
 2. Implement the minimum code to make it pass
 3. Refactor while keeping tests green
-4. Add the next failing test
+4. **Commit** the passing cycle before starting the next one
+5. Add the next failing test
+
+**Commit after every green cycle.** Do not batch multiple TDD cycles into a single commit.
+Uncommitted files on disk are vulnerable to being staged by another concurrent agent.
 
 Layering guidance:
 
@@ -68,6 +72,23 @@ Layering guidance:
 - Frontend: behavior tests, not snapshot-heavy tests
 - Demo readiness: smoke tests last
 
+## Git Staging Discipline
+
+**NEVER use `git add .`, `git add -A`, or any broad staging command.**
+Always stage files by name: `git add path/to/file1 path/to/file2`.
+
+Before every commit, verify the staging area contains only your files:
+
+```bash
+git diff --cached --name-only
+```
+
+If any file in the output is not in your ownership set, unstage it with `git reset HEAD <file>` before committing.
+
+**Why this matters:** When multiple agents share a working tree, broad staging will pick up
+other agents' uncommitted work and attribute it to the wrong commit. This has caused
+cross-contamination in practice.
+
 ## Session Close
 
 Before ending a coding session in `peaksix`:
@@ -76,11 +97,12 @@ Before ending a coding session in `peaksix`:
 1. Run the relevant tests
 2. Update or close the Beads issue
 3. `br sync --flush-only`
-4. Stage only intended files
-5. Commit
-6. `git pull --rebase`
-7. `git push`
-8. Verify branch state with `git status -sb`
+4. Stage only intended files **by name** (never `git add .`)
+5. Run `git diff --cached --name-only` and verify only your files are staged
+6. Commit
+7. `git pull --rebase`
+8. `git push`
+9. Verify branch state with `git status -sb`
 
 Do not leave the story status, git state, and remote state out of sync.
 

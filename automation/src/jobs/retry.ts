@@ -34,12 +34,15 @@ export async function retryWithBackoff<T>(
       if (remaining <= 0) break;
 
       await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(resolve, Math.min(delay, remaining));
+        const onAbort = () => {
+          clearTimeout(timer);
+          reject(new Error("Aborted"));
+        };
+        const timer = setTimeout(() => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve();
+        }, Math.min(delay, remaining));
         if (signal) {
-          const onAbort = () => {
-            clearTimeout(timer);
-            reject(new Error("Aborted"));
-          };
           if (signal.aborted) {
             clearTimeout(timer);
             reject(new Error("Aborted"));

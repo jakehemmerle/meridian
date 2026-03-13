@@ -8,7 +8,7 @@ import {
   getTradingDaySchedule,
 } from "@meridian/domain";
 
-import type { JobStatus, JobFailure } from "./types.js";
+import type { JobStatus } from "./types.js";
 
 export interface MorningJobDeps {
   fetchPriceSnapshots: (feedIds: readonly string[]) => Promise<HermesPriceSnapshot[]>;
@@ -99,41 +99,42 @@ export async function runMorningJob(deps: MorningJobDeps): Promise<MorningJobRes
       continue;
     }
 
-    // Generate strikes
+    // Generate strikes and process in parallel
     const strikePrices = generateStrikes(previousClose);
-    const strikeResults: StrikeResult[] = [];
 
-    for (const strikePrice of strikePrices) {
-      try {
-        const { meridianMarket, yesMint } = await createMarketOnChain(
-          ticker,
-          strikePrice,
-          schedule.marketCloseUtc,
-        );
+    const strikeResults = await Promise.all(
+      strikePrices.map(async (strikePrice): Promise<StrikeResult> => {
+        try {
+          const { meridianMarket, yesMint } = await createMarketOnChain(
+            ticker,
+            strikePrice,
+            schedule.marketCloseUtc,
+          );
 
-        const { phoenixMarket } = await createPhoenixMarket(
-          ticker,
-          strikePrice,
-          schedule.marketCloseUtc,
-          meridianMarket,
-          yesMint,
-        );
+          const { phoenixMarket } = await createPhoenixMarket(
+            ticker,
+            strikePrice,
+            schedule.marketCloseUtc,
+            meridianMarket,
+            yesMint,
+          );
 
-        strikeResults.push({
-          strikePrice,
-          status: "success",
-          meridianMarket,
-          yesMint,
-          phoenixMarket,
-        });
-      } catch (err) {
-        strikeResults.push({
-          strikePrice,
-          status: "error",
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
+          return {
+            strikePrice,
+            status: "success",
+            meridianMarket,
+            yesMint,
+            phoenixMarket,
+          };
+        } catch (err) {
+          return {
+            strikePrice,
+            status: "error",
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }),
+    );
 
     const allSuccess = strikeResults.every((s) => s.status === "success");
     const allError = strikeResults.every((s) => s.status === "error");

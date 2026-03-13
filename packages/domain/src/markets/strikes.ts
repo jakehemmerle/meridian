@@ -29,6 +29,8 @@ export function generateStrikes(
   return [...raw].sort((a, b) => a - b);
 }
 
+/** Convert a raw Pyth price to a decimal dollar amount for strike generation.
+ *  For on-chain settlement precision, use `scalePriceToUsdcMicros` instead. */
 export function pythPriceToDollars(price: string, expo: number): number {
   return Number(price) * 10 ** expo;
 }
