@@ -1,30 +1,37 @@
-import { InfoPanel } from "../../components/info-panel";
-import { readPublicMeridianEnv } from "../../lib/env/public";
+"use client";
+
+import { useWallet } from "@solana/wallet-adapter-react";
+
+function truncateAddress(address: string): string {
+  if (address.length <= 8) return address;
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
+}
 
 export function WalletStatusPanel() {
-  const env = readPublicMeridianEnv();
+  const { connected, connecting, publicKey } = useWallet();
 
-  const envEntries = [
-    ["Cluster", env.cluster],
-    ["RPC", env.rpcUrl ?? "unset"],
-    ["Program", env.programId],
-    ["USDC", env.usdcMint],
-  ] as const;
+  if (connecting) {
+    return (
+      <section className="panel">
+        <h2>Wallet</h2>
+        <p>Connecting...</p>
+      </section>
+    );
+  }
+
+  if (connected && publicKey) {
+    return (
+      <section className="panel">
+        <h2>Wallet</h2>
+        <p data-testid="wallet-address">{truncateAddress(publicKey.toBase58())}</p>
+      </section>
+    );
+  }
 
   return (
-    <InfoPanel title="Wallet And Network">
-      <p className="sectionCopy">
-        The current shell is wired for shared devnet config so wallet connection and Solana
-        session work can land without route-level env parsing.
-      </p>
-      <div className="envGrid">
-        {envEntries.map(([label, value]) => (
-          <article key={label} className="envCard">
-            <p>{label}</p>
-            <code>{value}</code>
-          </article>
-        ))}
-      </div>
-    </InfoPanel>
+    <section className="panel">
+      <h2>Wallet</h2>
+      <p>Connect Wallet</p>
+    </section>
   );
 }
