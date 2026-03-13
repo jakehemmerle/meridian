@@ -1,6 +1,8 @@
 mod config_tests;
+mod invariant_tests;
 mod market_tests;
 mod oracle_tests;
+mod redemption_tests;
 mod settlement_tests;
 mod trading_tests;
 

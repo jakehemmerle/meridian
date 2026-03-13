@@ -28,6 +28,10 @@ const envSchema = z.object({
   NEXT_PUBLIC_MERIDIAN_USDC_MINT: z.string().min(1),
   NEXT_PUBLIC_MERIDIAN_PHOENIX_PROGRAM_ID: z.string().min(1),
   NEXT_PUBLIC_MERIDIAN_PYTH_RECEIVER_PROGRAM_ID: z.string().min(1),
+  MERIDIAN_STRIKE_OFFSETS: z.string().optional().default("0.03,0.06,0.09"),
+  MERIDIAN_STRIKE_ROUNDING: z.coerce.number().int().optional().default(10),
+  MERIDIAN_SETTLEMENT_RETRY_MS: z.coerce.number().int().optional().default(5000),
+  MERIDIAN_SETTLEMENT_MAX_RETRY_MS: z.coerce.number().int().optional().default(900000),
 });
 
 export type MeridianEnv = z.infer<typeof envSchema>;
