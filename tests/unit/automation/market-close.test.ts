@@ -128,3 +128,51 @@ test("idempotency: all markets already closed → all skipped, overall success",
   assert.equal(result.closures.length, 1);
   assert.equal(result.closures[0].status, "skipped");
 });
+
+test("partial failure: Phoenix close fails for one market", async () => {
+  const deps = makeMockCloseDeps({
+    closePhoenixMarket: async (phoenixMarket) => {
+      if (phoenixMarket === "aapl-phoenix-pda") {
+        throw new Error("Phoenix tx simulation failed");
+      }
+      return { txSignature: "meta-phoenix-sig" };
+    },
+  });
+
+  const result = await runMarketCloseJob(deps);
+  assert.equal(result.status, "partial");
+
+  const aaplClosure = result.closures.find((c) => c.ticker === "AAPL");
+  assert.ok(aaplClosure);
+  assert.equal(aaplClosure!.status, "error");
+  assert.equal(aaplClosure!.failureCode, "MARKET_CLOSE_FAILED");
+
+  const metaClosure = result.closures.find((c) => c.ticker === "META");
+  assert.ok(metaClosure);
+  assert.equal(metaClosure!.status, "success");
+});
+
+test("partial failure: Meridian transition fails after successful Phoenix close", async () => {
+  const deps = makeMockCloseDeps({
+    closeMeridianMarket: async (meridianMarket) => {
+      if (meridianMarket === "meta-meridian-pda") {
+        throw new Error("Phase transition tx failed");
+      }
+      return { txSignature: "aapl-meridian-sig" };
+    },
+  });
+
+  const result = await runMarketCloseJob(deps);
+  assert.equal(result.status, "partial");
+
+  const metaClosure = result.closures.find((c) => c.ticker === "META");
+  assert.ok(metaClosure);
+  assert.equal(metaClosure!.status, "error");
+  assert.equal(metaClosure!.failureCode, "PHASE_TRANSITION_FAILED");
+  assert.ok(metaClosure!.phoenixTxSignature, "should have Phoenix sig from successful close");
+  assert.ok(metaClosure!.error!.includes("Phase transition"));
+
+  const aaplClosure = result.closures.find((c) => c.ticker === "AAPL");
+  assert.ok(aaplClosure);
+  assert.equal(aaplClosure!.status, "success");
+});
