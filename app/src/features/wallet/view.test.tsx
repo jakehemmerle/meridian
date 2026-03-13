@@ -22,4 +22,29 @@ describe("WalletStatusPanel", () => {
     render(<WalletStatusPanel />);
     expect(screen.getByText("Connect Wallet")).toBeInTheDocument();
   });
+
+  it("shows truncated address when connected", () => {
+    const fakePublicKey = {
+      toBase58: () => "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+    };
+    mockUseWallet.mockReturnValue({
+      connected: true,
+      connecting: false,
+      publicKey: fakePublicKey,
+    } as unknown as ReturnType<typeof useWallet>);
+
+    render(<WalletStatusPanel />);
+    expect(screen.getByText("7xKX...gAsU")).toBeInTheDocument();
+  });
+
+  it("shows Connecting indicator when connecting", () => {
+    mockUseWallet.mockReturnValue({
+      connected: false,
+      connecting: true,
+      publicKey: null,
+    } as ReturnType<typeof useWallet>);
+
+    render(<WalletStatusPanel />);
+    expect(screen.getByText("Connecting...")).toBeInTheDocument();
+  });
 });
