@@ -199,3 +199,26 @@ test("result correctly reports partial success counts", async () => {
   assert.ok(result.detail.length > 0, "should have a detail string");
   assert.equal(result.tickerResults.length, 7, "should have results for all 7 tickers");
 });
+
+test("detail string reports created, existing, and failed counts", async () => {
+  let callCount = 0;
+  const deps = makeMockDeps({
+    createMarketOnChain: async () => {
+      callCount++;
+      if (callCount === 1) {
+        throw new Error("insufficient SOL");
+      }
+      if (callCount === 2) {
+        return { meridianMarket: "market-pda", yesMint: "yes-mint-pda" };
+      }
+      throw new Error("Account already in use");
+    },
+  });
+
+  const result = await runMorningJob(deps);
+
+  // Detail should contain created/existing/failed counts
+  assert.match(result.detail, /created: \d+/);
+  assert.match(result.detail, /existing: \d+/);
+  assert.match(result.detail, /failed: \d+/);
+});

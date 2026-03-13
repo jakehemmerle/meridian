@@ -155,14 +155,18 @@ export async function runMorningJob(deps: MorningJobDeps): Promise<MorningJobRes
     });
   }
 
+  const allStrikes = tickerResults.flatMap((t) => t.strikes);
+  const createdCount = allStrikes.filter((s) => s.status === "success").length;
+  const existingCount = allStrikes.filter((s) => s.status === "exists").length;
+  const failedCount = allStrikes.filter((s) => s.status === "error").length;
+
   const allSuccess = tickerResults.every((t) => t.status === "success");
   const allError = tickerResults.every((t) => t.status === "error");
-  const successCount = tickerResults.filter((t) => t.status === "success").length;
 
   return {
     status: allSuccess ? "success" : allError ? "error" : "partial",
     job: "morning-job",
-    detail: `Processed ${tickerResults.length} tickers: ${successCount} success, ${tickerResults.length - successCount} with issues.`,
+    detail: `Processed ${tickerResults.length} tickers (created: ${createdCount}, existing: ${existingCount}, failed: ${failedCount})`,
     tickerResults,
   };
 }
