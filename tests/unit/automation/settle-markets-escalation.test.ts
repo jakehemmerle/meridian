@@ -6,10 +6,12 @@ import { makeHermesSnapshot } from "@meridian/testkit";
 
 import {
   makeValidatedFetchSettlementPrice,
+  buildSettlementDeps,
 } from "../../../automation/src/jobs/settlement-deps.js";
 import {
   runSettleMarketsJob,
   type SettleMarketsDeps,
+  type ActiveMarket,
 } from "../../../automation/src/jobs/settle-markets.js";
 
 const AAPL_FEED = MERIDIAN_TICKER_FEEDS.AAPL;
@@ -147,4 +149,56 @@ test("mixed results → escalation.failedMarkets only contains failures", async 
   assert.equal(result.escalation!.requiresAdminOverride, true);
   assert.equal(result.escalation!.failedMarkets.length, 1);
   assert.equal(result.escalation!.failedMarkets[0].ticker, "META");
+});
+
+// --- buildSettlementDeps tests ---
+
+test("buildSettlementDeps returns valid SettleMarketsDeps with all required fields", () => {
+  const activeMarkets: ActiveMarket[] = [
+    {
+      ticker: "AAPL",
+      strikePrice: 230,
+      meridianMarket: "aapl-pda",
+      marketCloseUtc: MARKET_CLOSE_UTC,
+    },
+  ];
+
+  const deps = buildSettlementDeps({
+    activeMarkets,
+    oracleConfig: { maximumAgeSeconds: 120, confidenceLimitBps: 100 },
+    retryConfig: { maxDurationMs: 5000, baseDelayMs: 100 },
+  });
+
+  assert.ok(deps.activeMarkets);
+  assert.equal(deps.activeMarkets.length, 1);
+  assert.ok(deps.fetchSettlementPrice);
+  assert.ok(deps.settleMarketOnChain);
+  assert.ok(deps.retryConfig);
+  assert.equal(deps.retryConfig.maxDurationMs, 5000);
+  assert.equal(deps.retryConfig.baseDelayMs, 100);
+});
+
+test("buildSettlementDeps wires correct Pyth feed ID for each ticker", async () => {
+  const activeMarkets: ActiveMarket[] = [
+    {
+      ticker: "NVDA",
+      strikePrice: 900,
+      meridianMarket: "nvda-pda",
+      marketCloseUtc: MARKET_CLOSE_UTC,
+    },
+  ];
+
+  const deps = buildSettlementDeps({
+    activeMarkets,
+    oracleConfig: { maximumAgeSeconds: 120, confidenceLimitBps: 100 },
+    retryConfig: { maxDurationMs: 5000, baseDelayMs: 100 },
+    innerFetchForTicker: async (ticker) =>
+      makeHermesSnapshot(ticker as keyof typeof MERIDIAN_TICKER_FEEDS, {
+        publish_time: MARKET_CLOSE_UTC - 30,
+      }),
+  });
+
+  // Should resolve with NVDA's feed ID
+  const snapshot = await deps.fetchSettlementPrice("NVDA", MARKET_CLOSE_UTC);
+  assert.equal(snapshot.id, MERIDIAN_TICKER_FEEDS.NVDA);
 });
