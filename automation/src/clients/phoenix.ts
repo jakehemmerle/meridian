@@ -17,6 +17,12 @@ import {
   type MarketHeader,
 } from "@ellipsis-labs/phoenix-sdk";
 
+/** Phoenix market status values */
+export const PHOENIX_MARKET_STATUS = {
+  ACTIVE: 1,
+  POST_ONLY: 2,
+} as const;
+
 /** Derive Phoenix vault PDA: seeds = ["vault", market, mint] */
 function deriveVaultAddress(
   market: PublicKey,
@@ -278,12 +284,13 @@ export async function validatePhoenixMarket(
     );
   }
 
-  // Status 2 = PostOnly (Phoenix markets initialize as PostOnly)
-  // Status 1 = Active (after authority changes status)
   const status = Number(header.status);
-  if (status !== 1 && status !== 2) {
+  if (
+    status !== PHOENIX_MARKET_STATUS.ACTIVE &&
+    status !== PHOENIX_MARKET_STATUS.POST_ONLY
+  ) {
     errors.push(
-      `Unexpected market status: ${status} (expected Active=1 or PostOnly=2)`,
+      `Unexpected market status: ${status} (expected Active=${PHOENIX_MARKET_STATUS.ACTIVE} or PostOnly=${PHOENIX_MARKET_STATUS.POST_ONLY})`,
     );
   }
 

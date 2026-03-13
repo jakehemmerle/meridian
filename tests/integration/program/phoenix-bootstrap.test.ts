@@ -19,6 +19,11 @@ import {
 } from "@ellipsis-labs/phoenix-sdk";
 
 import type { Meridian } from "../../../target/types/meridian.js";
+import {
+  createPhoenixMarket,
+  MERIDIAN_PHOENIX_DEFAULTS,
+  PHOENIX_MARKET_STATUS,
+} from "../../../automation/src/clients/phoenix.js";
 
 const PROGRAM_ID = new PublicKey(
   process.env.MERIDIAN_PROGRAM_ID ??
@@ -50,105 +55,6 @@ function deriveMarketPda(
     [MARKET_SEED, Buffer.from([ticker]), tradingDayBuf, strikePriceBuf],
     PROGRAM_ID,
   );
-}
-
-/** Derive Phoenix vault PDA */
-function derivePhoenixVault(
-  market: PublicKey,
-  mint: PublicKey,
-): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("vault"), market.toBuffer(), mint.toBuffer()],
-    PHOENIX_PROGRAM_ID,
-  );
-}
-
-/** Build Phoenix InitializeMarket instruction data (borsh-serialized) */
-function buildInitializeMarketData(
-  feeCollector: PublicKey,
-): Buffer {
-  const buf = Buffer.alloc(256);
-  let offset = 0;
-
-  // market_size_params
-  buf.writeBigUInt64LE(512n, offset); offset += 8; // bids_size
-  buf.writeBigUInt64LE(512n, offset); offset += 8; // asks_size
-  buf.writeBigUInt64LE(128n, offset); offset += 8; // num_seats
-
-  // num_quote_lots_per_quote_unit
-  buf.writeBigUInt64LE(1_000_000n, offset); offset += 8;
-  // tick_size_in_quote_lots_per_base_unit
-  buf.writeBigUInt64LE(1_000_000n, offset); offset += 8;
-  // num_base_lots_per_base_unit
-  buf.writeBigUInt64LE(1_000_000n, offset); offset += 8;
-  // taker_fee_bps
-  buf.writeUInt16LE(0, offset); offset += 2;
-  // fee_collector
-  feeCollector.toBuffer().copy(buf, offset); offset += 32;
-  // raw_base_units_per_base_unit: Some(1)
-  buf.writeUInt8(1, offset); offset += 1;
-  buf.writeUInt32LE(1, offset); offset += 4;
-
-  const ixData = Buffer.alloc(1 + offset);
-  ixData.writeUInt8(100, 0); // InitializeMarket discriminant
-  buf.copy(ixData, 1, 0, offset);
-  return ixData;
-}
-
-/** Create a Phoenix market on localnet */
-async function createPhoenixMarketOnChain(
-  connection: anchor.web3.Connection,
-  payer: Keypair,
-  baseMint: PublicKey,
-  quoteMint: PublicKey,
-): Promise<{ phoenixMarket: PublicKey; marketKeypair: Keypair }> {
-  const marketKeypair = Keypair.generate();
-
-  // Market account size for (512, 512, 128) — generous estimate
-  const marketSize = 576 + (512 + 512) * 80 + 128 * 128 + 8192;
-  const lamports =
-    await connection.getMinimumBalanceForRentExemption(marketSize);
-
-  const createAccountIx = SystemProgram.createAccount({
-    fromPubkey: payer.publicKey,
-    newAccountPubkey: marketKeypair.publicKey,
-    lamports,
-    space: marketSize,
-    programId: PHOENIX_PROGRAM_ID,
-  });
-
-  const logAuthority = getLogAuthority();
-  const [baseVault] = derivePhoenixVault(marketKeypair.publicKey, baseMint);
-  const [quoteVault] = derivePhoenixVault(marketKeypair.publicKey, quoteMint);
-
-  const ixData = buildInitializeMarketData(payer.publicKey);
-
-  const initializeIx = new TransactionInstruction({
-    programId: PHOENIX_PROGRAM_ID,
-    keys: [
-      { pubkey: PHOENIX_PROGRAM_ID, isWritable: false, isSigner: false },
-      { pubkey: logAuthority, isWritable: false, isSigner: false },
-      { pubkey: marketKeypair.publicKey, isWritable: true, isSigner: true },
-      { pubkey: payer.publicKey, isWritable: true, isSigner: true },
-      { pubkey: baseMint, isWritable: false, isSigner: false },
-      { pubkey: quoteMint, isWritable: false, isSigner: false },
-      { pubkey: baseVault, isWritable: true, isSigner: false },
-      { pubkey: quoteVault, isWritable: true, isSigner: false },
-      { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
-      {
-        pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-        isWritable: false,
-        isSigner: false,
-      },
-    ],
-    data: ixData,
-  });
-
-  const tx = new Transaction().add(createAccountIx, initializeIx);
-  const sig = await connection.sendTransaction(tx, [payer, marketKeypair]);
-  await connection.confirmTransaction(sig, "confirmed");
-
-  return { phoenixMarket: marketKeypair.publicKey, marketKeypair };
 }
 
 describe(
@@ -279,11 +185,14 @@ describe(
       assert.equal(yesMint.decimals, 6);
 
       // Step 2: Create Phoenix market with Yes mint as base, USDC as quote
-      const result = await createPhoenixMarketOnChain(
+      const result = await createPhoenixMarket(
         provider.connection,
         payer,
-        yesMintPda,
-        usdcMint,
+        {
+          ...MERIDIAN_PHOENIX_DEFAULTS,
+          baseMint: yesMintPda,
+          quoteMint: usdcMint,
+        },
       );
       phoenixMarketPubkey = result.phoenixMarket;
 
@@ -311,8 +220,11 @@ describe(
         "Quote mint should be USDC",
       );
 
-      // Markets initialize as PostOnly (status = 2)
-      assert.equal(Number(header.status), 2, "Market status should be PostOnly after init");
+      assert.equal(
+        Number(header.status),
+        PHOENIX_MARKET_STATUS.POST_ONLY,
+        "Market status should be PostOnly after init",
+      );
     });
 
     test("seat request succeeds", async () => {
