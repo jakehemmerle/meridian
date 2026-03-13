@@ -18,6 +18,9 @@ target/
 __pycache__/
 state.json
 
+# Beads runtime (redirect created by Gas Town at worktree setup)
+.beads/
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db
