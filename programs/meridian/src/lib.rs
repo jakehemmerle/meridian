@@ -3,6 +3,7 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 
 use instructions::market::CreateMarketParams;
+use phoenix::OrderParams;
 
 pub mod account_types;
 pub mod constants;
@@ -71,6 +72,10 @@ pub mod meridian {
         override_price: u64,
     ) -> Result<()> {
         instructions::settle::admin_settle_override(ctx, override_price)
+    }
+
+    pub fn trade_yes(ctx: Context<TradeYes>, params: OrderParams) -> Result<()> {
+        instructions::trade_yes::trade_yes(ctx, params)
     }
 }
 
@@ -331,6 +336,51 @@ pub struct AdminSettleOverride<'info> {
         has_one = config,
     )]
     pub market: Box<Account<'info, MeridianMarket>>,
+}
+
+#[derive(Accounts)]
+pub struct TradeYes<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(
+        seeds = [CONFIG_SEED],
+        bump = config.bump,
+    )]
+    pub config: Box<Account<'info, MeridianConfig>>,
+    #[account(
+        has_one = config,
+        has_one = yes_mint,
+    )]
+    pub market: Box<Account<'info, MeridianMarket>>,
+    pub yes_mint: Box<Account<'info, Mint>>,
+    /// CHECK: Validated in instruction logic against market.phoenix_market.
+    #[account(mut)]
+    pub phoenix_market: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        token::mint = yes_mint,
+    )]
+    pub user_yes: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        token::authority = user,
+    )]
+    pub user_usdc: Box<Account<'info, TokenAccount>>,
+    /// CHECK: Phoenix base vault, validated by Phoenix program during CPI.
+    #[account(mut)]
+    pub phoenix_base_vault: UncheckedAccount<'info>,
+    /// CHECK: Phoenix quote vault, validated by Phoenix program during CPI.
+    #[account(mut)]
+    pub phoenix_quote_vault: UncheckedAccount<'info>,
+    /// CHECK: Phoenix seat account, validated by Phoenix program during CPI.
+    #[account(mut)]
+    pub seat: UncheckedAccount<'info>,
+    /// CHECK: Phoenix log authority PDA, validated by Phoenix program during CPI.
+    pub log_authority: UncheckedAccount<'info>,
+    /// CHECK: Constrained to Phoenix program ID.
+    #[account(address = crate::phoenix::phoenix_program_id())]
+    pub phoenix_program: UncheckedAccount<'info>,
+    pub token_program: Program<'info, Token>,
 }
 
 #[cfg(test)]

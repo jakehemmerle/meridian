@@ -5,3 +5,4 @@ pub mod merge_pair;
 pub mod mint_pair;
 pub mod pause;
 pub mod settle;
+pub mod trade_yes;

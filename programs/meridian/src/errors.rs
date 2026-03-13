@@ -76,4 +76,12 @@ pub enum MeridianError {
     MarketClosedForTrading,
     #[msg("Admin override cannot be called until 1 hour after market close.")]
     AdminOverrideTooEarly,
+    #[msg("Order expiry timestamp exceeds market close time.")]
+    OrderExpiryExceedsMarketClose,
+    #[msg("Order size must be positive.")]
+    InvalidOrderSize,
+    #[msg("The provided Phoenix market does not match the market's configured Phoenix market.")]
+    PhoenixMarketMismatch,
+    #[msg("Phoenix CPI invocation failed.")]
+    PhoenixCpiFailed,
 }
