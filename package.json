@@ -14,6 +14,7 @@
     "test:domain": "pnpm domain:build && pnpm exec tsx --test tests/unit/domain/**/*.test.ts",
     "test:automation": "pnpm domain:build && pnpm testkit:build && pnpm exec tsx --test tests/unit/automation/**/*.test.ts",
     "test:program": "pnpm domain:build && pnpm testkit:build && pnpm exec tsx --test tests/integration/program/**/*.test.ts",
+    "test:frontend": "pnpm --filter @meridian/app test",
     "typecheck": "pnpm --filter @meridian/domain typecheck && pnpm --filter @meridian/testkit typecheck && pnpm --filter @meridian/app typecheck && pnpm --filter @meridian/automation typecheck",
     "dev:web": "pnpm domain:build && dotenv -e .env -- pnpm --filter @meridian/app dev",
     "dev:automation": "pnpm domain:build && dotenv -e .env -- pnpm --filter @meridian/automation dev",

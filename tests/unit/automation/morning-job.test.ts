@@ -148,6 +148,31 @@ test("mixed new + existing markets → job succeeds with mixed strike statuses",
   assert.ok(existsStrikes.length > 0, "should have at least one existing market");
 });
 
+test("genuine error alongside existing → partial status, error surfaces", async () => {
+  let callCount = 0;
+  const deps = makeMockDeps({
+    createMarketOnChain: async (_ticker, _strike, _tradingDay) => {
+      callCount++;
+      if (callCount === 1) {
+        throw new Error("insufficient SOL");
+      }
+      throw new Error("Account already in use");
+    },
+  });
+
+  const result = await runMorningJob(deps);
+
+  assert.equal(result.status, "partial");
+  // First ticker should be partial (one error, rest exists)
+  const firstTicker = result.tickerResults[0];
+  assert.equal(firstTicker.status, "partial");
+  const errorStrikes = firstTicker.strikes.filter((s) => s.status === "error");
+  const existsStrikes = firstTicker.strikes.filter((s) => s.status === "exists");
+  assert.ok(errorStrikes.length > 0, "should have at least one error strike");
+  assert.ok(existsStrikes.length > 0, "should have at least one exists strike");
+  assert.ok(errorStrikes[0].error!.includes("insufficient SOL"));
+});
+
 test("result correctly reports partial success counts", async () => {
   const deps = makeMockDeps();
   const result = await runMorningJob(deps);
