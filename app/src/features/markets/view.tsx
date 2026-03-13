@@ -4,6 +4,9 @@ import {
   MERIDIAN_PROGRAM_ID,
 } from "@meridian/domain";
 
+import type { MarketSummary } from "./model";
+import { formatMarketKey } from "./model";
+
 import { PageShell } from "../../components/page-shell";
 import { readPublicMeridianEnv } from "../../lib/env/public";
 
@@ -25,6 +28,53 @@ const commands = [
   "pnpm dev:automation",
   "pnpm deploy:devnet",
 ];
+
+function formatMicros(micros: bigint): string {
+  const dollars = Number(micros) / 1_000_000;
+  return `$${dollars.toFixed(2)}`;
+}
+
+interface MarketDiscoveryListProps {
+  markets: MarketSummary[];
+  loading: boolean;
+}
+
+export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListProps) {
+  if (loading) {
+    return (
+      <section className="panel">
+        <h2>Markets</h2>
+        <p>Loading markets...</p>
+      </section>
+    );
+  }
+
+  if (markets.length === 0) {
+    return (
+      <section className="panel">
+        <h2>Markets</h2>
+        <p>No markets available.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel">
+      <h2>Markets</h2>
+      <ul>
+        {markets.map((market) => (
+          <li key={formatMarketKey(market)}>
+            <span>{market.ticker}</span>
+            <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
+            {market.yesPriceMicros !== null && (
+              <span>Yes: {formatMicros(market.yesPriceMicros)}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 export function MarketsLandingPage() {
   const env = readPublicMeridianEnv();
