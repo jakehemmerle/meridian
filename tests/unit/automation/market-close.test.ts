@@ -91,3 +91,40 @@ test("happy path: closes all active markets successfully", async () => {
   assert.equal(phoenixCalls.length, 2);
   assert.equal(meridianCalls.length, 2);
 });
+
+test("idempotency: already-closed market returns skipped, overall success", async () => {
+  const deps = makeMockCloseDeps({
+    closePhoenixMarket: async () => {
+      throw new Error("Market is not active");
+    },
+    closeMeridianMarket: async () => {
+      throw new Error("already closed");
+    },
+  });
+
+  const result = await runMarketCloseJob(deps);
+  assert.equal(result.status, "success");
+
+  for (const c of result.closures) {
+    assert.equal(c.status, "skipped");
+  }
+});
+
+test("idempotency: all markets already closed → all skipped, overall success", async () => {
+  const deps = makeMockCloseDeps({
+    activeMarkets: [
+      { ticker: "AAPL", strikePrice: 230, meridianMarket: "aapl-m", phoenixMarket: "aapl-p" },
+    ],
+    closePhoenixMarket: async () => {
+      throw new Error("already closed");
+    },
+    closeMeridianMarket: async () => {
+      throw new Error("already closed");
+    },
+  });
+
+  const result = await runMarketCloseJob(deps);
+  assert.equal(result.status, "success");
+  assert.equal(result.closures.length, 1);
+  assert.equal(result.closures[0].status, "skipped");
+});
