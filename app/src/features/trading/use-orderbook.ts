@@ -1,9 +1,16 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { PublicKey } from "@solana/web3.js";
+import { useEffect, useRef, useState } from "react";
 import { useConnection } from "@solana/wallet-adapter-react";
 import type { OrderBookLadder } from "@meridian/domain";
 import { invertYesLadderToNo } from "@meridian/domain";
-import { parsePhoenixOrderBook, type RawPhoenixBook } from "./orderbook";
+import {
+  parsePhoenixOrderBook,
+  deserializePhoenixBook,
+  type RawPhoenixBook,
+} from "./orderbook";
+import {
+  createPhoenixSubscription,
+  type PhoenixDeserializer,
+} from "./phoenix-subscription";
 
 export type OrderBookStatus = "connecting" | "connected" | "stale" | "disconnected";
 
@@ -48,6 +55,11 @@ export function createOrderBookProcessor(
       lastUpdateTime = now();
       setState({ yesLadder, noLadder, status: "connected" });
     },
+    setDisconnected: () => {
+      if (state.status !== "disconnected") {
+        setState({ ...state, status: "disconnected" });
+      }
+    },
     checkStaleness: () => {
       if (lastUpdateTime > 0 && now() - lastUpdateTime > stalenessThresholdMs) {
         if (state.status !== "stale") {
@@ -67,6 +79,7 @@ export function createOrderBookProcessor(
 export function useOrderBook(
   marketAddress: string | null,
   stalenessThresholdMs = DEFAULT_STALENESS_THRESHOLD_MS,
+  deserialize: PhoenixDeserializer = deserializePhoenixBook,
 ): OrderBookState {
   const { connection } = useConnection();
   const [state, setState] = useState<OrderBookState>({
@@ -87,21 +100,32 @@ export function useOrderBook(
     processorRef.current = processor;
     processor.setOnChange(setState);
 
-    const pubkey = new PublicKey(marketAddress);
-    const subId = connection.onAccountChange(pubkey, (accountInfo) => {
-      processor.processUpdate(accountInfo as unknown as RawPhoenixBook);
-    });
+    const subscription = createPhoenixSubscription(
+      connection,
+      marketAddress,
+      deserialize,
+      {
+        onUpdate: (book) => processor.processUpdate(book),
+        onError: () => processor.setDisconnected(),
+        onStatusChange: () => {
+          // Status is managed by the processor via processUpdate/setDisconnected
+        },
+      },
+    );
 
     const intervalId = setInterval(() => {
       processor.checkStaleness();
     }, 1000);
 
-    return () => {
-      connection.removeAccountChangeListener(subId);
+    processor.addCleanup(() => {
+      subscription.unsubscribe();
       clearInterval(intervalId);
+    });
+
+    return () => {
       processor.cleanup();
     };
-  }, [marketAddress, connection, stalenessThresholdMs]);
+  }, [marketAddress, connection, stalenessThresholdMs, deserialize]);
 
   return state;
 }
