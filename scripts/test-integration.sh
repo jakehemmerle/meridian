@@ -9,7 +9,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TEST_DIR="$PROJECT_DIR/tests/integration/program"
 
-VALIDATOR_URL="http://127.0.0.1:8899"
+# Pick a random port so parallel runs don't collide (range: 10000-19999)
+VALIDATOR_PORT=$((10000 + RANDOM % 10000))
+VALIDATOR_URL="http://127.0.0.1:${VALIDATOR_PORT}"
 DEVNET_URL="https://api.devnet.solana.com"
 PHOENIX_PROGRAM="PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY"
 PHOENIX_PSM="PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1"
@@ -21,15 +23,19 @@ export ANCHOR_WALLET="${HOME}/.config/solana/id.json"
 declare -a PASSED=()
 declare -a FAILED=()
 
+VALIDATOR_PID=""
+
 kill_validator() {
-  pkill -f solana-test-validator 2>/dev/null || true
-  # Give it a moment to release the port
-  sleep 1
+  if [[ -n "${VALIDATOR_PID:-}" ]] && kill -0 "$VALIDATOR_PID" 2>/dev/null; then
+    kill "$VALIDATOR_PID" 2>/dev/null || true
+    wait "$VALIDATOR_PID" 2>/dev/null || true
+  fi
+  VALIDATOR_PID=""
 }
 
 cleanup() {
   echo ""
-  echo "Cleaning up: killing validator..."
+  echo "Cleaning up: killing validator (pid=${VALIDATOR_PID:-none}, port=${VALIDATOR_PORT})..."
   kill_validator
 }
 trap cleanup EXIT
@@ -67,14 +73,15 @@ for TEST_FILE in "${TEST_FILES[@]}"; do
   echo "=== Running: $SUITE_NAME"
   echo "========================================"
 
-  # Kill any existing validator
+  # Kill any existing validator from a previous iteration
   kill_validator
 
-  # Start fresh validator with --reset and cloned programs
-  echo "Starting solana-test-validator..."
+  # Start fresh validator with --reset and cloned programs on our unique port
+  echo "Starting solana-test-validator on port ${VALIDATOR_PORT}..."
   solana-test-validator \
     --reset \
     --bind-address 127.0.0.1 \
+    --rpc-port "$VALIDATOR_PORT" \
     --url "$DEVNET_URL" \
     --clone-upgradeable-program "$PHOENIX_PROGRAM" \
     --clone-upgradeable-program "$PHOENIX_PSM" \
@@ -106,7 +113,7 @@ for TEST_FILE in "${TEST_FILES[@]}"; do
   # Deploy Meridian program
   echo "Deploying Meridian program..."
   if ! anchor deploy \
-    --provider.cluster localnet \
+    --provider.cluster "$VALIDATOR_URL" \
     --program-name meridian \
     --program-keypair keys/meridian-program.json; then
     echo "Deploy failed for $SUITE_NAME"
