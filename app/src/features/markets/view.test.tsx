@@ -12,6 +12,10 @@ const sampleMarkets: MarketSummary[] = [
     tradingDay: 20260312,
     yesPriceMicros: 650_000n,
     closeTimeTs: 1741824000,
+    phase: "Trading",
+    outcome: "Unsettled",
+    settledPrice: null,
+    settlementTs: null,
   },
   {
     id: "m2",
@@ -20,6 +24,10 @@ const sampleMarkets: MarketSummary[] = [
     tradingDay: 20260312,
     yesPriceMicros: 420_000n,
     closeTimeTs: 1741824000,
+    phase: "Trading",
+    outcome: "Unsettled",
+    settledPrice: null,
+    settlementTs: null,
   },
 ];
 
@@ -49,6 +57,10 @@ describe("MarketDiscoveryList", () => {
         tradingDay: 20260312,
         yesPriceMicros: null,
         closeTimeTs: 1741824000,
+        phase: "Trading",
+        outcome: "Unsettled",
+        settledPrice: null,
+        settlementTs: null,
       },
     ];
     render(<MarketDiscoveryList markets={marketWithNullPrice} loading={false} />);
