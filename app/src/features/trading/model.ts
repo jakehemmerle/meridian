@@ -32,6 +32,26 @@ export function getIntentAction(intent: TradeIntent): IntentAction {
   return intentActions[intent];
 }
 
+// --- Intent-to-instruction-plan mapping ---
+
+export type InstructionType = "trade_yes" | "mint_pair" | "merge_pair";
+
+export interface InstructionStep {
+  type: InstructionType;
+  side?: "Buy" | "Sell";
+}
+
+const intentInstructionPlans: Record<TradeIntent, InstructionStep[]> = {
+  "buy-yes": [{ type: "trade_yes", side: "Buy" }],
+  "buy-no": [{ type: "mint_pair" }, { type: "trade_yes", side: "Sell" }],
+  "sell-yes": [{ type: "trade_yes", side: "Sell" }],
+  "sell-no": [{ type: "trade_yes", side: "Buy" }, { type: "merge_pair" }],
+};
+
+export function getIntentInstructionPlan(intent: TradeIntent): InstructionStep[] {
+  return intentInstructionPlans[intent];
+}
+
 // --- Payoff computation ---
 
 const PRICE_UNIT = 1_000_000;

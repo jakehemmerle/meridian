@@ -182,6 +182,29 @@ describe("TradingScreen", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not call onIntent when clicking a disabled Sell Yes button", async () => {
+    const onIntent = vi.fn();
+    render(<TradingScreen {...baseProps} position={null} onIntent={onIntent} />);
+    const user = userEvent.setup();
+
+    const sellYesBtn = screen.getByRole("button", { name: /Sell Yes/i });
+    expect(sellYesBtn).toBeDisabled();
+
+    await user.click(sellYesBtn);
+    expect(onIntent).not.toHaveBeenCalled();
+  });
+
+  it("enables both sell buttons and shows no guidance when holding both Yes and No", () => {
+    const position: UserPosition = { yesQuantity: 5n, noQuantity: 3n };
+    render(<TradingScreen {...baseProps} position={position} />);
+
+    expect(screen.getByRole("button", { name: /Sell Yes/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Sell No/i })).toBeEnabled();
+
+    expect(screen.queryByText("You need Yes tokens to sell.")).not.toBeInTheDocument();
+    expect(screen.queryByText("You need No tokens to sell.")).not.toBeInTheDocument();
+  });
+
   it("updates payoff when switching intent", async () => {
     render(<TradingScreen {...baseProps} />);
     const user = userEvent.setup();

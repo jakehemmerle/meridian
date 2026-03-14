@@ -111,6 +111,24 @@ describe("createOrderBookProcessor", () => {
     expect(processor.getState().status).toBe("stale");
   });
 
+  it("transitions from stale back to connected when processUpdate is called", () => {
+    let fakeNow = 1000;
+    const processor = createOrderBookProcessor(5000, () => fakeNow);
+
+    processor.processUpdate(SAMPLE_RAW);
+    expect(processor.getState().status).toBe("connected");
+
+    // Go stale
+    fakeNow = 7000;
+    processor.checkStaleness();
+    expect(processor.getState().status).toBe("stale");
+
+    // New update arrives → back to connected
+    fakeNow = 8000;
+    processor.processUpdate(SAMPLE_RAW);
+    expect(processor.getState().status).toBe("connected");
+  });
+
   it("cleanup is callable", () => {
     const cleanupCalled: number[] = [];
     const processor = createOrderBookProcessor(5000);

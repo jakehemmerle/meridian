@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   tradingIntentDescriptors,
   getIntentAction,
+  getIntentInstructionPlan,
   computePayoff,
   getCountdownSeconds,
   getPositionConstraints,
@@ -66,6 +67,34 @@ describe("getIntentAction", () => {
     expect(action.phoenixSide).toBe("ask");
     expect(action.direction).toBe("sell");
     expect(action.outcomeToken).toBe("no");
+  });
+});
+
+describe("getIntentInstructionPlan", () => {
+  it("buy-yes → single trade_yes with Buy side", () => {
+    const plan = getIntentInstructionPlan("buy-yes");
+    expect(plan).toEqual([{ type: "trade_yes", side: "Buy" }]);
+  });
+
+  it("buy-no → mint_pair then trade_yes with Sell side", () => {
+    const plan = getIntentInstructionPlan("buy-no");
+    expect(plan).toEqual([
+      { type: "mint_pair" },
+      { type: "trade_yes", side: "Sell" },
+    ]);
+  });
+
+  it("sell-yes → single trade_yes with Sell side", () => {
+    const plan = getIntentInstructionPlan("sell-yes");
+    expect(plan).toEqual([{ type: "trade_yes", side: "Sell" }]);
+  });
+
+  it("sell-no → trade_yes with Buy side then merge_pair", () => {
+    const plan = getIntentInstructionPlan("sell-no");
+    expect(plan).toEqual([
+      { type: "trade_yes", side: "Buy" },
+      { type: "merge_pair" },
+    ]);
   });
 });
 
