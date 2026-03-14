@@ -122,3 +122,8 @@ connection errors even though the validator is running correctly.
   order entry and cancellation remain follow-on trading work, not bootstrap behavior.
 - This scaffold remains intentionally narrow. The actual Phoenix trading flows and Pyth settlement
   transactions still land in follow-on issues.
+
+## Risks and Limitations
+
+See [docs/RISKS.md](docs/RISKS.md) for known risks and limitations including oracle
+dependency, devnet constraints, and settlement timing considerations.
