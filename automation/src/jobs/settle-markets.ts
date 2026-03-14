@@ -9,6 +9,10 @@ export interface ActiveMarket {
   marketCloseUtc: number;
 }
 
+export interface SettlementLogger {
+  error: (message: string, context: Record<string, unknown>) => void;
+}
+
 export interface SettleMarketsDeps {
   activeMarkets: ActiveMarket[];
   fetchSettlementPrice: (
@@ -20,6 +24,7 @@ export interface SettleMarketsDeps {
     snapshot: HermesPriceSnapshot,
   ) => Promise<{ settled: boolean; txSignature: string }>;
   retryConfig: { maxDurationMs: number; baseDelayMs: number };
+  logger?: SettlementLogger;
 }
 
 export interface SettlementResult {
@@ -66,7 +71,7 @@ export async function runSettleMarketsJob(
     };
   }
 
-  const { activeMarkets, fetchSettlementPrice, settleMarketOnChain, retryConfig } = deps;
+  const { activeMarkets, fetchSettlementPrice, settleMarketOnChain, retryConfig, logger } = deps;
 
   const settlements = await Promise.all(
     activeMarkets.map(async (market): Promise<SettlementResult> => {
@@ -134,6 +139,20 @@ export async function runSettleMarketsJob(
           }),
         }
       : undefined;
+
+  // Log structured escalation for admin visibility
+  if (escalation && logger) {
+    for (const fm of escalation.failedMarkets) {
+      logger.error("SETTLEMENT_ESCALATION", {
+        ticker: fm.ticker,
+        failureCode: fm.failureCode,
+        meridianMarket: fm.meridianMarket,
+        strikePrice: fm.strikePrice,
+        error: fm.error,
+        adminOverrideAvailableAfterTs: fm.adminOverrideAvailableAfterTs,
+      });
+    }
+  }
 
   return {
     status: allSuccess ? "success" : allError ? "error" : "partial",

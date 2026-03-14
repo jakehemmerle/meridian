@@ -11,6 +11,7 @@ import {
 import {
   runSettleMarketsJob,
   type SettleMarketsDeps,
+  type SettlementLogger,
   type ActiveMarket,
 } from "../../../automation/src/jobs/settle-markets.js";
 
@@ -201,4 +202,78 @@ test("buildSettlementDeps wires correct Pyth feed ID for each ticker", async () 
   // Should resolve with NVDA's feed ID
   const snapshot = await deps.fetchSettlementPrice("NVDA", MARKET_CLOSE_UTC);
   assert.equal(snapshot.id, MERIDIAN_TICKER_FEEDS.NVDA);
+});
+
+// --- Escalation logging tests ---
+
+test("escalation logs contain ticker, failureCode, and meridianMarket for each failed market", async () => {
+  const logEntries: Array<{ message: string; context: Record<string, unknown> }> = [];
+  const mockLogger: SettlementLogger = {
+    error: (message, context) => logEntries.push({ message, context }),
+  };
+
+  const deps = makeMockDeps({
+    fetchSettlementPrice: async () => {
+      throw new Error("Oracle permanently down");
+    },
+    retryConfig: { maxDurationMs: 50, baseDelayMs: 10 },
+    logger: mockLogger,
+  });
+
+  const result = await runSettleMarketsJob(deps);
+  assert.equal(result.status, "error");
+
+  // Should have logged one entry per failed market
+  assert.equal(logEntries.length, 2);
+
+  for (const entry of logEntries) {
+    assert.equal(entry.message, "SETTLEMENT_ESCALATION");
+    assert.ok(entry.context.ticker, "log should contain ticker");
+    assert.ok(entry.context.failureCode, "log should contain failureCode");
+    assert.ok(entry.context.meridianMarket, "log should contain meridianMarket");
+    assert.ok(entry.context.strikePrice !== undefined, "log should contain strikePrice");
+    assert.ok(entry.context.error, "log should contain error");
+    assert.ok(entry.context.adminOverrideAvailableAfterTs, "log should contain admin override timestamp");
+  }
+
+  // Verify specific tickers
+  const tickers = logEntries.map((e) => e.context.ticker);
+  assert.ok(tickers.includes("AAPL"));
+  assert.ok(tickers.includes("META"));
+});
+
+test("no escalation logs when all markets succeed", async () => {
+  const logEntries: Array<{ message: string; context: Record<string, unknown> }> = [];
+  const mockLogger: SettlementLogger = {
+    error: (message, context) => logEntries.push({ message, context }),
+  };
+
+  const deps = makeMockDeps({ logger: mockLogger });
+
+  const result = await runSettleMarketsJob(deps);
+  assert.equal(result.status, "success");
+  assert.equal(logEntries.length, 0);
+});
+
+test("escalation logs only for failed markets in partial failure", async () => {
+  const logEntries: Array<{ message: string; context: Record<string, unknown> }> = [];
+  const mockLogger: SettlementLogger = {
+    error: (message, context) => logEntries.push({ message, context }),
+  };
+
+  const deps = makeMockDeps({
+    settleMarketOnChain: async (market) => {
+      if (market.ticker === "META") {
+        throw new Error("META settlement failed");
+      }
+      return { settled: true, txSignature: "aapl-sig" };
+    },
+    logger: mockLogger,
+  });
+
+  const result = await runSettleMarketsJob(deps);
+  assert.equal(result.status, "partial");
+  assert.equal(logEntries.length, 1);
+  assert.equal(logEntries[0].context.ticker, "META");
+  assert.equal(logEntries[0].context.failureCode, "SETTLEMENT_TX_FAILED");
 });
