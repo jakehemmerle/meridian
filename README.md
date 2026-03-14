@@ -65,8 +65,11 @@ mint/merge, and then settlement/redemption.
 3. Install JavaScript dependencies with `pnpm install`.
 4. Run `pnpm bootstrap:check` to validate the devnet bootstrap configuration directly from source
    before builds or deploys.
-5. Build the workspace with `pnpm build`.
-6. Run smoke tests with `pnpm test`.
+5. Build the Solana program with `anchor build` (produces `target/deploy/meridian.so`).
+6. Build the workspace with `pnpm build`.
+7. Run unit tests with `pnpm test`.
+8. Run on-chain integration tests with `pnpm test:integration:full`
+   (requires step 5 — spins up a fresh `solana-test-validator` per suite).
 
 ## Local Validator
 
