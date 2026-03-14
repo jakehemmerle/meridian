@@ -71,12 +71,11 @@ pub fn derive_log_authority() -> Pubkey {
 ///   1. log_authority (read)
 ///   2. market (write)
 ///   3. trader (signer)
-///   4. seat (write)
-///   5. base_vault (write)
-///   6. quote_vault (write)
-///   7. base_account (write) — trader's base token account
-///   8. quote_account (write) — trader's quote token account
-///   9. token_program (read)
+///   4. base_account (write) — trader's base token account
+///   5. quote_account (write) — trader's quote token account
+///   6. base_vault (write)
+///   7. quote_vault (write)
+///   8. token_program (read)
 ///
 /// IOC OrderPacket layout (borsh):
 ///   tag(u8=1) + side(u8) + price_in_ticks(Option<u64>) + num_base_lots(u64) +
@@ -89,7 +88,7 @@ pub fn build_phoenix_swap_instruction(
     log_authority: &Pubkey,
     phoenix_market: &Pubkey,
     trader: &Pubkey,
-    seat: &Pubkey,
+    _seat: &Pubkey,
     base_vault: &Pubkey,
     quote_vault: &Pubkey,
     base_account: &Pubkey,
@@ -107,8 +106,8 @@ pub fn build_phoenix_swap_instruction(
     // Swap discriminant
     data.push(0u8);
 
-    // OrderPacket tag: ImmediateOrCancel = 1
-    data.push(1u8);
+    // OrderPacket tag: ImmediateOrCancel = 2 (enum variant index)
+    data.push(2u8);
 
     // side
     data.push(phoenix_side);
@@ -167,11 +166,10 @@ pub fn build_phoenix_swap_instruction(
         AccountMeta::new_readonly(*log_authority, false),
         AccountMeta::new(*phoenix_market, false),
         AccountMeta::new_readonly(*trader, true),
-        AccountMeta::new(*seat, false),
-        AccountMeta::new(*base_vault, false),
-        AccountMeta::new(*quote_vault, false),
         AccountMeta::new(*base_account, false),
         AccountMeta::new(*quote_account, false),
+        AccountMeta::new(*base_vault, false),
+        AccountMeta::new(*quote_vault, false),
         AccountMeta::new_readonly(*token_program, false),
     ];
 

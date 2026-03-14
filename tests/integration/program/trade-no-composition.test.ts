@@ -51,9 +51,9 @@ const TICKER_AAPL = 0;
 // Phoenix instruction discriminants
 const PHOENIX_CHANGE_MARKET_STATUS = 103;
 const PHOENIX_CHANGE_SEAT_STATUS = 104;
-const PHOENIX_PLACE_LIMIT_ORDER = 1;
+const PHOENIX_PLACE_LIMIT_ORDER = 2;
 const PHOENIX_SEAT_APPROVED = 1;
-const PHOENIX_POST_ONLY_TAG = 2;
+const PHOENIX_POST_ONLY_TAG = 0;
 
 function deriveMarketPda(
   ticker: number,
@@ -177,11 +177,11 @@ function buildPlaceLimitOrderIx(
       { pubkey: logAuthority, isWritable: false, isSigner: false },
       { pubkey: phoenixMarket, isWritable: true, isSigner: false },
       { pubkey: trader, isWritable: false, isSigner: true },
-      { pubkey: seat, isWritable: true, isSigner: false },
-      { pubkey: baseVault, isWritable: true, isSigner: false },
-      { pubkey: quoteVault, isWritable: true, isSigner: false },
+      { pubkey: seat, isWritable: false, isSigner: false },
       { pubkey: baseAccount, isWritable: true, isSigner: false },
       { pubkey: quoteAccount, isWritable: true, isSigner: false },
+      { pubkey: baseVault, isWritable: true, isSigner: false },
+      { pubkey: quoteVault, isWritable: true, isSigner: false },
       {
         pubkey: anchor.utils.token.TOKEN_PROGRAM_ID,
         isWritable: false,
@@ -292,18 +292,16 @@ describe(
         PROGRAM_ID,
       );
 
-      // Create Phoenix market
-      const result = await createPhoenixMarket(provider.connection, payer, {
-        ...MERIDIAN_PHOENIX_DEFAULTS,
-        baseMint: yesMintPda,
-        quoteMint: usdcMint,
-      });
-      phoenixMarketPubkey = result.phoenixMarket;
+      // Pre-generate Phoenix market keypair so we know the address upfront
+      const phoenixMarketKeypair = Keypair.generate();
+      phoenixMarketPubkey = phoenixMarketKeypair.publicKey;
 
       [phoenixBaseVault] = derivePhoenixVault(phoenixMarketPubkey, yesMintPda);
       [phoenixQuoteVault] = derivePhoenixVault(phoenixMarketPubkey, usdcMint);
 
-      // Create Meridian market
+      // Step 1: Create Meridian market first — this initializes the Yes/No mint PDAs
+      // on-chain via the classic Token program. Must happen before Phoenix market
+      // creation because Phoenix validates that mints are owned by TOKEN_PROGRAM_ID.
       await program.methods
         .createMarket({
           ticker: { aapl: {} },
@@ -329,6 +327,14 @@ describe(
         })
         .signers([payer, operationsAuthority])
         .rpc();
+
+      // Step 2: Create Phoenix market with the pre-generated keypair.
+      // The Yes mint PDA now exists on-chain as a classic SPL Token mint.
+      const result = await createPhoenixMarket(provider.connection, payer, {
+        ...MERIDIAN_PHOENIX_DEFAULTS,
+        baseMint: yesMintPda,
+        quoteMint: usdcMint,
+      }, phoenixMarketKeypair);
 
       // Activate Phoenix market
       const activateIx = buildChangeMarketStatusIx(
@@ -400,19 +406,21 @@ describe(
         phoenixProgram: PHOENIX_PROGRAM_ID,
         logAuthority: getLogAuthority(),
         market: phoenixMarketPubkey,
-        payer: payer.publicKey,
+        payer: trader.publicKey,
         seat: traderSeatPubkey,
       });
       const mmRequestIx = createRequestSeatInstruction({
         phoenixProgram: PHOENIX_PROGRAM_ID,
         logAuthority: getLogAuthority(),
         market: phoenixMarketPubkey,
-        payer: payer.publicKey,
+        payer: marketMaker.publicKey,
         seat: mmSeatPubkey,
       });
 
       const seatTx = new Transaction().add(traderRequestIx, mmRequestIx);
-      const seatSig = await provider.connection.sendTransaction(seatTx, [payer]);
+      const seatSig = await provider.connection.sendTransaction(seatTx, [
+        payer, trader, marketMaker,
+      ]);
       await provider.connection.confirmTransaction(seatSig, "confirmed");
 
       const approveTraderIx = buildApproveSeatIx(phoenixMarketPubkey, payer.publicKey, traderSeatPubkey);
@@ -424,7 +432,8 @@ describe(
       traderSeat = traderSeatPubkey;
       mmSeat = mmSeatPubkey;
 
-      // Market maker places resting bid and ask at price 50
+      // Market maker places resting ask and bid at different prices to avoid
+      // PostOnly crossing (same-price PostOnly orders silently fail).
       const askIx = buildPlaceLimitOrderIx(
         phoenixMarketPubkey,
         marketMaker.publicKey,
@@ -434,7 +443,7 @@ describe(
         mmYesAta,
         mmUsdcAta,
         "ask",
-        50n,
+        52n,
         10n * BigInt(ONE_USDC),
       );
 
@@ -447,7 +456,7 @@ describe(
         mmYesAta,
         mmUsdcAta,
         "bid",
-        50n,
+        48n,
         10n * BigInt(ONE_USDC),
       );
 
@@ -488,7 +497,7 @@ describe(
         .tradeYes({
           side: { sell: {} },
           numBaseLots: new anchor.BN(5 * ONE_USDC),
-          priceInTicks: new anchor.BN(50),
+          priceInTicks: new anchor.BN(45),
           lastValidUnixTimestampInSeconds: null,
         })
         .accounts({
@@ -540,7 +549,7 @@ describe(
         .tradeYes({
           side: { buy: {} },
           numBaseLots: new anchor.BN(2 * ONE_USDC),
-          priceInTicks: new anchor.BN(50),
+          priceInTicks: new anchor.BN(55),
           lastValidUnixTimestampInSeconds: null,
         })
         .accounts({
@@ -629,7 +638,7 @@ describe(
         .tradeYes({
           side: { sell: {} },
           numBaseLots: new anchor.BN(1 * ONE_USDC),
-          priceInTicks: new anchor.BN(50),
+          priceInTicks: new anchor.BN(45),
           lastValidUnixTimestampInSeconds: null,
         })
         .accounts({
@@ -690,7 +699,7 @@ describe(
         .tradeYes({
           side: { buy: {} },
           numBaseLots: new anchor.BN(1 * ONE_USDC),
-          priceInTicks: new anchor.BN(50),
+          priceInTicks: new anchor.BN(55),
           lastValidUnixTimestampInSeconds: null,
         })
         .accounts({
@@ -798,12 +807,12 @@ describe(
         phoenixProgram: PHOENIX_PROGRAM_ID,
         logAuthority: getLogAuthority(),
         market: phoenixMarketPubkey,
-        payer: payer.publicKey,
+        payer: freshUser.publicKey,
         seat: freshSeatPubkey,
       });
       const approveIx = buildApproveSeatIx(phoenixMarketPubkey, payer.publicKey, freshSeatPubkey);
       const seatTx = new Transaction().add(requestIx, approveIx);
-      const seatSig = await provider.connection.sendTransaction(seatTx, [payer]);
+      const seatSig = await provider.connection.sendTransaction(seatTx, [payer, freshUser]);
       await provider.connection.confirmTransaction(seatSig, "confirmed");
 
       // Step 1: tradeYes(Buy) succeeds — buy Yes tokens from resting ask
@@ -811,7 +820,7 @@ describe(
         .tradeYes({
           side: { buy: {} },
           numBaseLots: new anchor.BN(1 * ONE_USDC),
-          priceInTicks: new anchor.BN(50),
+          priceInTicks: new anchor.BN(55),
           lastValidUnixTimestampInSeconds: null,
         })
         .accounts({
@@ -884,7 +893,7 @@ describe(
         .tradeYes({
           side: { sell: {} },
           numBaseLots: new anchor.BN(50 * ONE_USDC),
-          priceInTicks: new anchor.BN(50),
+          priceInTicks: new anchor.BN(45),
           lastValidUnixTimestampInSeconds: null,
         })
         .accounts({

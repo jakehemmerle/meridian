@@ -150,7 +150,7 @@ function buildPlaceLimitOrderIx(
   // Build OrderPacket::PostOnly
   const packetBuf = Buffer.alloc(128);
   let offset = 0;
-  packetBuf.writeUInt8(2, offset); offset += 1; // PostOnly tag
+  packetBuf.writeUInt8(0, offset); offset += 1; // PostOnly tag (enum index 0)
   packetBuf.writeUInt8(side === "bid" ? 0 : 1, offset); offset += 1; // Side: Bid=0, Ask=1
   packetBuf.writeBigUInt64LE(priceInTicks, offset); offset += 8; // price_in_ticks
   packetBuf.writeBigUInt64LE(numBaseLots, offset); offset += 8; // num_base_lots
@@ -166,9 +166,9 @@ function buildPlaceLimitOrderIx(
   // fail_silently_on_insufficient_funds = true
   packetBuf.writeUInt8(1, offset); offset += 1;
 
-  // Instruction: discriminant(u8=0 = Swap) — but for limit order we use 1 = PlaceLimitOrder
+  // Instruction: PlaceLimitOrder discriminant = 2
   const ixData = Buffer.alloc(1 + offset);
-  ixData.writeUInt8(1, 0); // PlaceLimitOrder discriminant
+  ixData.writeUInt8(2, 0); // PlaceLimitOrder discriminant
   packetBuf.copy(ixData, 1, 0, offset);
 
   return new TransactionInstruction({
@@ -178,11 +178,11 @@ function buildPlaceLimitOrderIx(
       { pubkey: logAuthority, isWritable: false, isSigner: false },
       { pubkey: phoenixMarket, isWritable: true, isSigner: false },
       { pubkey: trader, isWritable: false, isSigner: true },
-      { pubkey: seat, isWritable: true, isSigner: false },
-      { pubkey: baseVault, isWritable: true, isSigner: false },
-      { pubkey: quoteVault, isWritable: true, isSigner: false },
+      { pubkey: seat, isWritable: false, isSigner: false },
       { pubkey: baseAccount, isWritable: true, isSigner: false },
       { pubkey: quoteAccount, isWritable: true, isSigner: false },
+      { pubkey: baseVault, isWritable: true, isSigner: false },
+      { pubkey: quoteVault, isWritable: true, isSigner: false },
       {
         pubkey: anchor.utils.token.TOKEN_PROGRAM_ID,
         isWritable: false,
@@ -293,18 +293,16 @@ describe(
         PROGRAM_ID,
       );
 
-      // Create Phoenix market first to get the address
-      const result = await createPhoenixMarket(provider.connection, payer, {
-        ...MERIDIAN_PHOENIX_DEFAULTS,
-        baseMint: yesMintPda,
-        quoteMint: usdcMint,
-      });
-      phoenixMarketPubkey = result.phoenixMarket;
+      // Pre-generate Phoenix market keypair so we know the address upfront
+      const phoenixMarketKeypair = Keypair.generate();
+      phoenixMarketPubkey = phoenixMarketKeypair.publicKey;
 
       [phoenixBaseVault] = derivePhoenixVault(phoenixMarketPubkey, yesMintPda);
       [phoenixQuoteVault] = derivePhoenixVault(phoenixMarketPubkey, usdcMint);
 
-      // Create Meridian market with the real phoenix market address
+      // Step 1: Create Meridian market first — this initializes the Yes/No mint PDAs
+      // on-chain via the classic Token program. Must happen before Phoenix market
+      // creation because Phoenix validates that mints are owned by TOKEN_PROGRAM_ID.
       await program.methods
         .createMarket({
           ticker: { aapl: {} },
@@ -330,6 +328,14 @@ describe(
         })
         .signers([payer, operationsAuthority])
         .rpc();
+
+      // Step 2: Create Phoenix market with the pre-generated keypair.
+      // The Yes mint PDA now exists on-chain as a classic SPL Token mint.
+      const result = await createPhoenixMarket(provider.connection, payer, {
+        ...MERIDIAN_PHOENIX_DEFAULTS,
+        baseMint: yesMintPda,
+        quoteMint: usdcMint,
+      }, phoenixMarketKeypair);
 
       // Set Phoenix market to Active (from PostOnly)
       const activateIx = buildChangeMarketStatusIx(
@@ -420,19 +426,21 @@ describe(
         phoenixProgram: PHOENIX_PROGRAM_ID,
         logAuthority: getLogAuthority(),
         market: phoenixMarketPubkey,
-        payer: payer.publicKey,
+        payer: trader.publicKey,
         seat: traderSeatPubkey,
       });
       const mmRequestIx = createRequestSeatInstruction({
         phoenixProgram: PHOENIX_PROGRAM_ID,
         logAuthority: getLogAuthority(),
         market: phoenixMarketPubkey,
-        payer: payer.publicKey,
+        payer: marketMaker.publicKey,
         seat: mmSeatPubkey,
       });
 
       const seatTx = new Transaction().add(traderRequestIx, mmRequestIx);
-      const seatSig = await provider.connection.sendTransaction(seatTx, [payer]);
+      const seatSig = await provider.connection.sendTransaction(seatTx, [
+        payer, trader, marketMaker,
+      ]);
       await provider.connection.confirmTransaction(seatSig, "confirmed");
 
       // Approve both seats
@@ -445,8 +453,8 @@ describe(
       traderSeat = traderSeatPubkey;
       mmSeat = mmSeatPubkey;
 
-      // Market maker places resting ask at price 50 (sell Yes tokens for USDC)
-      // and resting bid at price 50 (buy Yes tokens with USDC)
+      // Market maker places resting ask and bid at different prices to avoid
+      // PostOnly crossing (same-price PostOnly orders silently fail).
       const askIx = buildPlaceLimitOrderIx(
         phoenixMarketPubkey,
         marketMaker.publicKey,
@@ -456,7 +464,7 @@ describe(
         mmYesAta,
         mmUsdcAta,
         "ask",
-        50n, // price in ticks
+        52n, // price in ticks (resting ask)
         10n * BigInt(ONE_USDC), // num base lots
       );
 
@@ -469,7 +477,7 @@ describe(
         mmYesAta,
         mmUsdcAta,
         "bid",
-        50n,
+        48n, // price in ticks (resting bid)
         10n * BigInt(ONE_USDC),
       );
 
@@ -486,7 +494,7 @@ describe(
         .tradeYes({
           side: { buy: {} },
           numBaseLots: new anchor.BN(1 * ONE_USDC),
-          priceInTicks: new anchor.BN(50),
+          priceInTicks: new anchor.BN(55),
           lastValidUnixTimestampInSeconds: null,
         })
         .accounts({
@@ -530,7 +538,7 @@ describe(
         .tradeYes({
           side: { sell: {} },
           numBaseLots: new anchor.BN(1 * ONE_USDC),
-          priceInTicks: new anchor.BN(50),
+          priceInTicks: new anchor.BN(45),
           lastValidUnixTimestampInSeconds: null,
         })
         .accounts({

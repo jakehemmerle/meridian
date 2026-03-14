@@ -96,8 +96,9 @@ export async function createPhoenixMarket(
   connection: Connection,
   payer: Keypair,
   params: CreatePhoenixMarketParams,
+  existingMarketKeypair?: Keypair,
 ): Promise<{ phoenixMarket: PublicKey; marketKeypair: Keypair }> {
-  const marketKeypair = Keypair.generate();
+  const marketKeypair = existingMarketKeypair ?? Keypair.generate();
   const bidsSize = params.bidsSize ?? 512n;
   const asksSize = params.asksSize ?? 512n;
   const numSeats = params.numSeats ?? 128n;

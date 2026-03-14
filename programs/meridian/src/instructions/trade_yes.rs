@@ -45,11 +45,10 @@ pub fn trade_yes(ctx: Context<TradeYes>, params: OrderParams) -> Result<()> {
         ctx.accounts.log_authority.to_account_info(),
         ctx.accounts.phoenix_market.to_account_info(),
         ctx.accounts.user.to_account_info(),
-        ctx.accounts.seat.to_account_info(),
-        ctx.accounts.phoenix_base_vault.to_account_info(),
-        ctx.accounts.phoenix_quote_vault.to_account_info(),
         ctx.accounts.user_yes.to_account_info(),
         ctx.accounts.user_usdc.to_account_info(),
+        ctx.accounts.phoenix_base_vault.to_account_info(),
+        ctx.accounts.phoenix_quote_vault.to_account_info(),
         ctx.accounts.token_program.to_account_info(),
     ];
 
