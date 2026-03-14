@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { describe } from "node:test";
 
 import * as anchor from "@coral-xyz/anchor";
-import { createMint } from "@solana/spl-token";
+import { createMint, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 import type { Meridian } from "../../../target/types/meridian.js";
 
@@ -67,7 +67,7 @@ describe("add_strike", { skip: !process.env.ANCHOR_PROVIDER_URL }, () => {
     ]);
     await new Promise((r) => setTimeout(r, 1000));
 
-    usdcMint = await createMint(provider.connection, payer, payer.publicKey, null, 6);
+    usdcMint = await createMint(provider.connection, payer, payer.publicKey, null, 6, undefined, undefined, TOKEN_PROGRAM_ID);
 
     [configPda] = anchor.web3.PublicKey.findProgramAddressSync([CONFIG_SEED], PROGRAM_ID);
 

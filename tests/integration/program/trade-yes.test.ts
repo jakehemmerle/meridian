@@ -7,6 +7,7 @@ import {
   createAssociatedTokenAccount,
   getAccount,
   mintTo,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import {
   Keypair,
@@ -251,6 +252,9 @@ describe(
         payer.publicKey,
         null,
         6,
+        undefined,
+        undefined,
+        TOKEN_PROGRAM_ID,
       );
 
       // Initialize config

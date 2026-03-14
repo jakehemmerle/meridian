@@ -6,6 +6,7 @@ import {
   createMint,
   getAccount,
   getMint,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 
 import type { Meridian } from "../../../target/types/meridian.js";
@@ -82,6 +83,9 @@ describe("create_market", { skip: !process.env.ANCHOR_PROVIDER_URL }, () => {
       payer.publicKey,
       null,
       6,
+      undefined,
+      undefined,
+      TOKEN_PROGRAM_ID,
     );
 
     // Derive config PDA

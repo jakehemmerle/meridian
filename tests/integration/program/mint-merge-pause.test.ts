@@ -7,6 +7,7 @@ import {
   createAssociatedTokenAccount,
   getAccount,
   mintTo,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 
 import type { Meridian } from "../../../target/types/meridian.js";
@@ -79,7 +80,7 @@ describe("mint_merge_pause", { skip: !process.env.ANCHOR_PROVIDER_URL }, () => {
     await new Promise((r) => setTimeout(r, 1000));
 
     // Create USDC mint
-    usdcMint = await createMint(provider.connection, payer, payer.publicKey, null, 6);
+    usdcMint = await createMint(provider.connection, payer, payer.publicKey, null, 6, undefined, undefined, TOKEN_PROGRAM_ID);
 
     // Initialize config
     [configPda] = anchor.web3.PublicKey.findProgramAddressSync([CONFIG_SEED], PROGRAM_ID);

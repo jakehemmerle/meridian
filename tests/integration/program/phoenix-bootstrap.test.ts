@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { describe } from "node:test";
 
 import * as anchor from "@coral-xyz/anchor";
-import { createMint, getMint } from "@solana/spl-token";
+import { createMint, getMint, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
   Keypair,
   PublicKey,
@@ -100,6 +100,9 @@ describe(
         payer.publicKey,
         null,
         6,
+        undefined,
+        undefined,
+        TOKEN_PROGRAM_ID,
       );
 
       [configPda] = PublicKey.findProgramAddressSync(
