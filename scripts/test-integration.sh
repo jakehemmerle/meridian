@@ -15,6 +15,8 @@ VALIDATOR_URL="http://127.0.0.1:${VALIDATOR_PORT}"
 DEVNET_URL="https://api.devnet.solana.com"
 PHOENIX_PROGRAM="PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY"
 PHOENIX_PSM="PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1"
+MERIDIAN_PROGRAM_ID="$(solana-keygen pubkey "$PROJECT_DIR/keys/meridian-program.json")"
+MERIDIAN_SO="$PROJECT_DIR/target/deploy/meridian.so"
 
 export ANCHOR_PROVIDER_URL="$VALIDATOR_URL"
 export ANCHOR_WALLET="${HOME}/.config/solana/id.json"
@@ -46,6 +48,12 @@ cd "$PROJECT_DIR"
 pnpm domain:build
 pnpm testkit:build
 
+# Verify the .so exists (anchor build must have been run first)
+if [[ ! -f "$MERIDIAN_SO" ]]; then
+  echo "ERROR: $MERIDIAN_SO not found. Run 'anchor build' first."
+  exit 1
+fi
+
 # Collect test files (exclude program-id.test.ts)
 TEST_FILES=()
 for f in "$TEST_DIR"/*.test.ts; do
@@ -76,7 +84,7 @@ for TEST_FILE in "${TEST_FILES[@]}"; do
   # Kill any existing validator from a previous iteration
   kill_validator
 
-  # Start fresh validator with --reset and cloned programs on our unique port
+  # Start fresh validator with --reset, cloned programs, and Meridian loaded at genesis
   echo "Starting solana-test-validator on port ${VALIDATOR_PORT}..."
   solana-test-validator \
     --reset \
@@ -85,6 +93,7 @@ for TEST_FILE in "${TEST_FILES[@]}"; do
     --url "$DEVNET_URL" \
     --clone-upgradeable-program "$PHOENIX_PROGRAM" \
     --clone-upgradeable-program "$PHOENIX_PSM" \
+    --bpf-program "$MERIDIAN_PROGRAM_ID" "$MERIDIAN_SO" \
     --quiet &
 
   VALIDATOR_PID=$!
@@ -109,18 +118,6 @@ for TEST_FILE in "${TEST_FILES[@]}"; do
     continue
   fi
   echo "Validator ready."
-
-  # Deploy Meridian program
-  echo "Deploying Meridian program..."
-  if ! anchor deploy \
-    --provider.cluster "$VALIDATOR_URL" \
-    --program-name meridian \
-    --program-keypair keys/meridian-program.json; then
-    echo "Deploy failed for $SUITE_NAME"
-    FAILED+=("$SUITE_NAME")
-    continue
-  fi
-  echo "Deploy complete."
 
   # Run the test
   echo "Running test..."
