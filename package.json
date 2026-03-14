@@ -16,6 +16,7 @@
     "test:program": "pnpm domain:build && pnpm testkit:build && pnpm exec tsx --test tests/integration/program/**/*.test.ts",
     "test:integration:full": "bash scripts/test-integration.sh",
     "test:frontend": "pnpm --filter @meridian/app test",
+    "test:e2e": "pnpm --filter @meridian/app test:e2e",
     "typecheck": "pnpm --filter @meridian/domain typecheck && pnpm --filter @meridian/testkit typecheck && pnpm --filter @meridian/app typecheck && pnpm --filter @meridian/automation typecheck",
     "dev:web": "pnpm domain:build && dotenv -e .env -- pnpm --filter @meridian/app dev",
     "dev:automation": "pnpm domain:build && dotenv -e .env -- pnpm --filter @meridian/automation dev",
