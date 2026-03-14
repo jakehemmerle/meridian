@@ -88,6 +88,8 @@ export interface PositionConstraints {
   canBuyNo: boolean;
   canSellYes: boolean;
   canSellNo: boolean;
+  buyYesGuidance: string | null;
+  buyNoGuidance: string | null;
   sellYesGuidance: string | null;
   sellNoGuidance: string | null;
 }
@@ -98,11 +100,17 @@ export function getPositionConstraints(
   const hasYes = position != null && position.yesQuantity > 0n;
   const hasNo = position != null && position.noQuantity > 0n;
 
+  // During mint-pair operations, a user may transiently hold both Yes and No.
+  // In that case, allow all buys (don't block).
+  const isDualHolding = hasYes && hasNo;
+
   return {
-    canBuyYes: true,
-    canBuyNo: true,
+    canBuyYes: isDualHolding || !hasNo,
+    canBuyNo: isDualHolding || !hasYes,
     canSellYes: hasYes,
     canSellNo: hasNo,
+    buyYesGuidance: !isDualHolding && hasNo ? "Sell your No tokens first." : null,
+    buyNoGuidance: !isDualHolding && hasYes ? "Sell your Yes tokens first." : null,
     sellYesGuidance: hasYes ? null : "You need Yes tokens to sell.",
     sellNoGuidance: hasNo ? null : "You need No tokens to sell.",
   };

@@ -130,6 +130,8 @@ export function TradingScreen({
   }
 
   function isIntentDisabled(intent: TradeIntent): boolean {
+    if (intent === "buy-yes") return !constraints.canBuyYes;
+    if (intent === "buy-no") return !constraints.canBuyNo;
     if (intent === "sell-yes") return !constraints.canSellYes;
     if (intent === "sell-no") return !constraints.canSellNo;
     return false;
@@ -168,6 +170,12 @@ export function TradingScreen({
         ))}
       </div>
 
+      {!constraints.canBuyYes && (
+        <p className="guidance">{constraints.buyYesGuidance}</p>
+      )}
+      {!constraints.canBuyNo && (
+        <p className="guidance">{constraints.buyNoGuidance}</p>
+      )}
       {!constraints.canSellYes && (
         <p className="guidance">{constraints.sellYesGuidance}</p>
       )}

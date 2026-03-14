@@ -125,7 +125,7 @@ describe("getPositionConstraints", () => {
     expect(constraints.canSellNo).toBe(false);
   });
 
-  it("allows Sell Yes when user holds Yes tokens", () => {
+  it("allows Sell Yes but blocks Buy No when user holds Yes tokens", () => {
     const position: UserPosition = {
       yesQuantity: 5n,
       noQuantity: 0n,
@@ -134,10 +134,10 @@ describe("getPositionConstraints", () => {
     expect(constraints.canSellYes).toBe(true);
     expect(constraints.canSellNo).toBe(false);
     expect(constraints.canBuyYes).toBe(true);
-    expect(constraints.canBuyNo).toBe(true);
+    expect(constraints.canBuyNo).toBe(false);
   });
 
-  it("allows Sell No when user holds No tokens", () => {
+  it("allows Sell No but blocks Buy Yes when user holds No tokens", () => {
     const position: UserPosition = {
       yesQuantity: 0n,
       noQuantity: 3n,
@@ -145,9 +145,11 @@ describe("getPositionConstraints", () => {
     const constraints = getPositionConstraints(position);
     expect(constraints.canSellYes).toBe(false);
     expect(constraints.canSellNo).toBe(true);
+    expect(constraints.canBuyYes).toBe(false);
+    expect(constraints.canBuyNo).toBe(true);
   });
 
-  it("allows both sells when user holds both tokens", () => {
+  it("allows both sells and buys during mint-pair transient (dual holding)", () => {
     const position: UserPosition = {
       yesQuantity: 5n,
       noQuantity: 3n,
@@ -155,6 +157,8 @@ describe("getPositionConstraints", () => {
     const constraints = getPositionConstraints(position);
     expect(constraints.canSellYes).toBe(true);
     expect(constraints.canSellNo).toBe(true);
+    expect(constraints.canBuyYes).toBe(true);
+    expect(constraints.canBuyNo).toBe(true);
   });
 
   it("provides guidance text for disabled sell intents", () => {
@@ -165,5 +169,23 @@ describe("getPositionConstraints", () => {
     expect(constraints.sellNoGuidance).toBe(
       "You need No tokens to sell.",
     );
+  });
+
+  it("provides guidance text for disabled buy intents", () => {
+    const holdingNo: UserPosition = { yesQuantity: 0n, noQuantity: 5n };
+    const holdingYes: UserPosition = { yesQuantity: 5n, noQuantity: 0n };
+
+    const noConstraints = getPositionConstraints(holdingNo);
+    expect(noConstraints.buyYesGuidance).toBe("Sell your No tokens first.");
+
+    const yesConstraints = getPositionConstraints(holdingYes);
+    expect(yesConstraints.buyNoGuidance).toBe("Sell your Yes tokens first.");
+  });
+
+  it("zero balance allows all buys", () => {
+    const position: UserPosition = { yesQuantity: 0n, noQuantity: 0n };
+    const constraints = getPositionConstraints(position);
+    expect(constraints.canBuyYes).toBe(true);
+    expect(constraints.canBuyNo).toBe(true);
   });
 });

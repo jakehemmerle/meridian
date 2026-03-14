@@ -119,6 +119,45 @@ describe("TradingScreen", () => {
     ).toBeInTheDocument();
   });
 
+  // --- Buy position constraints ---
+
+  it("disables Buy Yes when user holds No tokens", () => {
+    const position: UserPosition = { yesQuantity: 0n, noQuantity: 5n };
+    render(<TradingScreen {...baseProps} position={position} />);
+    expect(screen.getByRole("button", { name: /Buy Yes/i })).toBeDisabled();
+  });
+
+  it("disables Buy No when user holds Yes tokens", () => {
+    const position: UserPosition = { yesQuantity: 5n, noQuantity: 0n };
+    render(<TradingScreen {...baseProps} position={position} />);
+    expect(screen.getByRole("button", { name: /Buy No/i })).toBeDisabled();
+  });
+
+  it("shows buy guidance text when buy is constrained", () => {
+    const position: UserPosition = { yesQuantity: 5n, noQuantity: 0n };
+    render(<TradingScreen {...baseProps} position={position} />);
+    expect(
+      screen.getByText("Sell your Yes tokens first."),
+    ).toBeInTheDocument();
+  });
+
+  it("re-checks constraints after intent callback", async () => {
+    const position: UserPosition = { yesQuantity: 0n, noQuantity: 5n };
+    const onIntent = vi.fn();
+    render(<TradingScreen {...baseProps} position={position} onIntent={onIntent} />);
+    const user = userEvent.setup();
+
+    // Buy Yes is disabled due to holding No tokens
+    expect(screen.getByRole("button", { name: /Buy Yes/i })).toBeDisabled();
+
+    // Sell No is enabled — clicking it triggers onIntent
+    await user.click(screen.getByRole("button", { name: /Sell No/i }));
+    expect(onIntent).toHaveBeenCalledWith("sell-no");
+
+    // Constraints are still applied (position hasn't changed in props)
+    expect(screen.getByRole("button", { name: /Buy Yes/i })).toBeDisabled();
+  });
+
   // --- Countdown timer ---
 
   it("displays a countdown timer", () => {
