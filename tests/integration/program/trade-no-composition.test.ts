@@ -528,10 +528,10 @@ describe(
         "No balance should increase after Buy No composition",
       );
 
-      // USDC decreased (mint cost minus sell proceeds)
+      // USDC increased: at tick 48 ($48/Yes token), sell proceeds far exceed the $1/pair mint cost
       assert.ok(
-        usdcAfter.amount < usdcBefore.amount,
-        "USDC should decrease (mint cost > sell proceeds at sub-$1 price)",
+        usdcAfter.amount > usdcBefore.amount,
+        "USDC should increase (sell proceeds at $48/token > $1 mint cost)",
       );
     });
 
@@ -598,12 +598,10 @@ describe(
         "No balance should decrease after Sell No composition",
       );
 
-      // USDC changed (merge returns 1 USDC per pair, minus buy cost)
-      // At price 50 ticks (sub-$1), buying Yes costs less than the merge return of $1
-      // so net USDC should increase
+      // USDC decreased: at tick 52 ($52/Yes token), buy cost far exceeds the $1/pair merge return
       assert.ok(
-        usdcAfter.amount > usdcBefore.amount,
-        "USDC should increase (merge return $1 > buy cost at sub-$1 price)",
+        usdcAfter.amount < usdcBefore.amount,
+        "USDC should decrease (buy cost at $52/token > $1 merge return)",
       );
     });
 
