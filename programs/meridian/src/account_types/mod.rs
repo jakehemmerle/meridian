@@ -13,4 +13,5 @@ pub type PauseProtocolAccounts<'info> = crate::PauseProtocol<'info>;
 pub type AddStrikeAccounts<'info> = crate::AddStrike<'info>;
 pub type SettleMarketAccounts<'info> = crate::SettleMarket<'info>;
 pub type AdminSettleOverrideAccounts<'info> = crate::AdminSettleOverride<'info>;
+pub type CloseMarketAccounts<'info> = crate::CloseMarket<'info>;
 pub type RedeemAccounts<'info> = crate::Redeem<'info>;

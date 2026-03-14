@@ -63,6 +63,10 @@ pub mod meridian {
         instructions::add_strike::add_strike(ctx, params)
     }
 
+    pub fn close_market(ctx: Context<CloseMarket>) -> Result<()> {
+        instructions::close_market::close_market(ctx)
+    }
+
     pub fn settle_market(ctx: Context<SettleMarket>) -> Result<()> {
         instructions::settle::settle_market(ctx)
     }
@@ -309,6 +313,22 @@ pub struct AddStrike<'info> {
     pub usdc_mint: Box<Account<'info, Mint>>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct CloseMarket<'info> {
+    pub operations_authority: Signer<'info>,
+    #[account(
+        seeds = [CONFIG_SEED],
+        bump = config.bump,
+        has_one = operations_authority,
+    )]
+    pub config: Box<Account<'info, MeridianConfig>>,
+    #[account(
+        mut,
+        has_one = config,
+    )]
+    pub market: Box<Account<'info, MeridianMarket>>,
 }
 
 #[derive(Accounts)]

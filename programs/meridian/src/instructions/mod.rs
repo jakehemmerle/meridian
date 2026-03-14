@@ -1,4 +1,5 @@
 pub mod add_strike;
+pub mod close_market;
 pub mod config;
 pub mod market;
 pub mod merge_pair;

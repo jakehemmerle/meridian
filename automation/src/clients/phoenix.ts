@@ -301,6 +301,26 @@ export async function changePhoenixMarketStatus(
   return sig;
 }
 
+/**
+ * Factory: create a `closePhoenixMarket` function matching the
+ * `MarketCloseJobDeps` interface signature.
+ */
+export function makeClosePhoenixMarket(
+  connection: Connection,
+  authority: Keypair,
+): (phoenixMarket: string) => Promise<{ txSignature: string }> {
+  return async (phoenixMarket: string) => {
+    const market = new PublicKey(phoenixMarket);
+    const txSignature = await changePhoenixMarketStatus(
+      connection,
+      authority,
+      market,
+      PHOENIX_MARKET_STATUS.CLOSED,
+    );
+    return { txSignature };
+  };
+}
+
 export interface PhoenixMarketValidation {
   valid: boolean;
   errors: string[];
