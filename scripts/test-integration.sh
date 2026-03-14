@@ -145,11 +145,11 @@ run_suite() {
 }
 
 # Launch all suites in parallel, each with fully isolated ports.
-# Each suite gets a 500-port block: [base, base+499]
+# Each suite gets a 30-port block: [base, base+29]
 #   RPC: base, WS: base+1, faucet: base+2, gossip: base+3
-#   dynamic range: base+10 to base+499
-BLOCK_SIZE=500
-BASE_PORT=$((10000 + RANDOM % 5000))
+#   dynamic range: base+4 to base+29 (26 ports — validator minimum)
+BLOCK_SIZE=30
+BASE_PORT=$((10000 + RANDOM % 50000))
 declare -a SUITE_PIDS=()
 declare -a SUITE_NAMES=()
 declare -a SUITE_LOGS=()
@@ -163,7 +163,7 @@ for i in "${!TEST_FILES[@]}"; do
   PORT=$SUITE_BASE
   FAUCET_PORT=$((SUITE_BASE + 2))
   GOSSIP_PORT=$((SUITE_BASE + 3))
-  DYN_START=$((SUITE_BASE + 10))
+  DYN_START=$((SUITE_BASE + 4))
   DYN_END=$((SUITE_BASE + BLOCK_SIZE - 1))
   LEDGER_DIR="/tmp/test-ledger-${PORT}"
 
