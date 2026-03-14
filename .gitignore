@@ -2,6 +2,7 @@ node_modules/
 .next/
 dist/
 target/
+*.tsbuildinfo
 .anchor/
 .env
 .env.local
