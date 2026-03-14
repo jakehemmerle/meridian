@@ -25,13 +25,13 @@ declare -a LEDGER_DIRS=()
 cleanup() {
   echo ""
   echo "Cleaning up validators and temp files..."
-  for pid in "${VALIDATOR_PIDS[@]}"; do
+  for pid in "${VALIDATOR_PIDS[@]+"${VALIDATOR_PIDS[@]}"}"; do
     if kill -0 "$pid" 2>/dev/null; then
       kill "$pid" 2>/dev/null || true
       wait "$pid" 2>/dev/null || true
     fi
   done
-  for dir in "${LEDGER_DIRS[@]}"; do
+  for dir in "${LEDGER_DIRS[@]+"${LEDGER_DIRS[@]}"}"; do
     rm -rf "$dir"
   done
   rm -rf "$RESULTS_DIR"
@@ -75,6 +75,10 @@ echo ""
 run_suite() {
   local test_file="$1"
   local port="$2"
+  local faucet_port="$3"
+  local gossip_port="$4"
+  local dyn_range_start="$5"
+  local dyn_range_end="$6"
   local suite_name="$(basename "$test_file")"
   local validator_url="http://127.0.0.1:${port}"
   local ledger_dir="/tmp/test-ledger-${port}"
@@ -84,11 +88,15 @@ run_suite() {
   {
     echo "=== Starting: $suite_name (port $port) ==="
 
-    # Start fresh validator with isolated ledger
+    # Start fresh validator with fully isolated ports:
+    # RPC ($port), websocket ($port+1), faucet, gossip, dynamic range
     solana-test-validator \
       --reset \
       --bind-address 127.0.0.1 \
       --rpc-port "$port" \
+      --faucet-port "$faucet_port" \
+      --gossip-port "$gossip_port" \
+      --dynamic-port-range "${dyn_range_start}-${dyn_range_end}" \
       --ledger "$ledger_dir" \
       --url "$DEVNET_URL" \
       --clone-upgradeable-program "$PHOENIX_PROGRAM" \
@@ -136,7 +144,11 @@ run_suite() {
   } > "$log_file" 2>&1
 }
 
-# Launch all suites in parallel, each on its own port
+# Launch all suites in parallel, each with fully isolated ports.
+# Each suite gets a 500-port block: [base, base+499]
+#   RPC: base, WS: base+1, faucet: base+2, gossip: base+3
+#   dynamic range: base+10 to base+499
+BLOCK_SIZE=500
 BASE_PORT=$((10000 + RANDOM % 5000))
 declare -a SUITE_PIDS=()
 declare -a SUITE_NAMES=()
@@ -147,7 +159,12 @@ echo "=== Launching ${#TEST_FILES[@]} suites in parallel ==="
 for i in "${!TEST_FILES[@]}"; do
   TEST_FILE="${TEST_FILES[$i]}"
   SUITE_NAME="$(basename "$TEST_FILE")"
-  PORT=$((BASE_PORT + i * 10))  # Space ports by 10 to avoid fencepost collisions
+  SUITE_BASE=$((BASE_PORT + i * BLOCK_SIZE))
+  PORT=$SUITE_BASE
+  FAUCET_PORT=$((SUITE_BASE + 2))
+  GOSSIP_PORT=$((SUITE_BASE + 3))
+  DYN_START=$((SUITE_BASE + 10))
+  DYN_END=$((SUITE_BASE + BLOCK_SIZE - 1))
   LEDGER_DIR="/tmp/test-ledger-${PORT}"
 
   LEDGER_DIRS+=("$LEDGER_DIR")
@@ -156,7 +173,7 @@ for i in "${!TEST_FILES[@]}"; do
 
   echo "  $SUITE_NAME -> port $PORT"
 
-  run_suite "$TEST_FILE" "$PORT" &
+  run_suite "$TEST_FILE" "$PORT" "$FAUCET_PORT" "$GOSSIP_PORT" "$DYN_START" "$DYN_END" &
   SUITE_PIDS+=($!)
   # The validator PID is inside the subshell; track the subshell PID for cleanup
   VALIDATOR_PIDS+=($!)
