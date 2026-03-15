@@ -166,20 +166,20 @@ test.describe("Market data hooks", () => {
     browserWallet,
     marketData,
   }) => {
-    // Settle AAPL market (Yes wins at $210)
-    // Note: this will only work if close_time has passed on the validator
-    // For the test, the fixture uses a future close_time, so we may need
-    // to use a market with a past close_time. This test may fail until
-    // the settlement fixture is properly configured.
-    try {
-      await marketData.settleMarket(
-        marketData.aaplMarket,
-        BigInt(210_000_000),
-      );
-    } catch {
-      // Settlement may fail if close_time hasn't passed - that's expected
-      // The test will fail on assertions below, which is correct for TDD red phase
-    }
+    // Create a new AAPL market with past close_time so it can be settled
+    const settleableMarket = await marketData.createMarket(
+      0, // AAPL
+      BigInt(200_000_000),
+      new Uint8Array([
+        73, 246, 182, 92, 177, 222, 107, 16, 234, 247, 94, 124, 3, 202, 2,
+        156, 48, 109, 3, 87, 233, 27, 83, 17, 177, 117, 8, 74, 90, 213, 86,
+        136,
+      ]),
+      { pastCloseTime: true },
+    );
+
+    // Settle it (Yes wins at $210)
+    await marketData.settleMarket(settleableMarket, BigInt(210_000_000));
 
     await page.goto("/");
 
@@ -191,10 +191,12 @@ test.describe("Market data hooks", () => {
       page.locator("[data-testid='wallet-address']"),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Assert AAPL shows settled state
-    const aaplItem = page.locator("[data-testid='market-item-AAPL']");
-    await expect(aaplItem).toBeVisible({ timeout: 15_000 });
-    await expect(aaplItem).toContainText("Settled");
-    await expect(aaplItem).toContainText("Yes");
+    // Assert the settled AAPL market shows settled state
+    // There may be multiple AAPL items (one trading, one settled) - find the settled one
+    const settledItem = page.locator(
+      "[data-testid='market-item-AAPL']:has-text('Settled')",
+    );
+    await expect(settledItem).toBeVisible({ timeout: 15_000 });
+    await expect(settledItem).toContainText("Yes");
   });
 });

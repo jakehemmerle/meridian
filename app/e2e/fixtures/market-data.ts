@@ -95,6 +95,7 @@ export interface MarketDataFixture {
     ticker: number,
     strikePrice: bigint,
     feedId: Uint8Array,
+    opts?: { pastCloseTime?: boolean },
   ): Promise<MarketInfo>;
   /** Transfer Yes tokens from test wallet to throwaway address */
   transferYesTokens(market: MarketInfo, amount: number): Promise<void>;
@@ -300,18 +301,28 @@ export const marketDataTest = browserWalletTest.extend<{
       ticker: number,
       strikePrice: bigint,
       feedId: Uint8Array,
+      opts?: { pastCloseTime?: boolean },
     ): Promise<MarketInfo> {
+      const closeTime = opts?.pastCloseTime
+        ? new anchor.BN(1_000_000) // Far in the past
+        : futureCloseTime;
+      const settleAfter = opts?.pastCloseTime
+        ? new anchor.BN(1_000_600) // Past + 600s
+        : futureSettleAfter;
+      // Use a different trading day for past-close markets to avoid PDA collision
+      const day = opts?.pastCloseTime ? TRADING_DAY - 1 : TRADING_DAY;
+
       return createMeridianMarket(
         program,
         keypair,
         configPda,
         usdcMint,
         ticker,
-        TRADING_DAY,
+        day,
         strikePrice,
         feedId,
-        futureCloseTime,
-        futureSettleAfter,
+        closeTime,
+        settleAfter,
         phoenixPlaceholder,
       );
     }
