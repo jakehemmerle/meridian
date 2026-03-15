@@ -15,14 +15,21 @@ documented in `requirements.md`, `research-codex.md`, and `research-rubric.md`.
 ## Layout
 
 - `programs/meridian`: Anchor program crate
-- `app`: Next.js frontend shell
-- `automation`: Node.js automation service shell
-- `tests`: workspace smoke tests
+- `app`: Next.js frontend — market discovery, order book, trading, redemption
+  - `src/lib/solana/`: Anchor program hook, browser-safe PDA derivation
+  - `src/features/markets/`: market list with on-chain discovery (`useMarkets`)
+  - `src/features/trading/`: order book subscription, trade execution (`useTrade`),
+    balance polling (`useBalances`), trading screen UI
+- `automation`: Node.js automation service — market creation, Phoenix bootstrap, MM liquidity
+  - `src/clients/`: reusable clients for Meridian, Phoenix, PDA derivation, Hermes oracle
+- `packages/domain`: shared constants, types, ticker feeds, order book utilities
+- `tests`: unit and integration tests
+- `scripts`: demo, deploy, and reset scripts
 - `keys/meridian-program.json`: Anchor program keypair for local and devnet deploys
 
 ## Current Protocol Model
 
-The current program scaffold now treats the protocol boundary as two core accounts:
+The protocol boundary is two core accounts:
 
 - `MeridianConfig`: global admin and operations authorities, paused flag, oracle thresholds,
   pinned USDC mint, pinned Pyth receiver program, and the fixed MAG7 ticker-to-feed mapping
@@ -30,7 +37,7 @@ The current program scaffold now treats the protocol boundary as two core accoun
   market reference, Yes/No mints, collateral vault, oracle feed id, and collateral/open-interest
   counters
 
-Seed conventions are fixed in the program crate for the next implementation pass:
+Seed conventions:
 
 - `config`
 - `market`
@@ -54,8 +61,27 @@ Protocol enforcement versus UI enforcement is also explicit:
 - Frontend only: preventing users from intentionally holding both Yes and No as a steady-state
   trading position
 
-This is the implementation baseline for the next on-chain stories: config init, market creation,
-mint/merge, and then settlement/redemption.
+All on-chain instructions are implemented: config init, market creation, add strike, mint/merge
+pair, trade (via Phoenix CPI), close, settle (via Pyth oracle), and redemption.
+
+## Frontend Architecture
+
+The browser app is wired to on-chain data and transaction execution:
+
+- **Market discovery**: `useMarkets()` fetches all `MeridianMarket` accounts via Anchor's
+  `program.account.meridianMarket.all()` and maps them to the UI model.
+- **Order book**: `useOrderBook()` subscribes to Phoenix market account changes over WebSocket,
+  deserializes the binary book data, and derives the No ladder by inverting the Yes ladder.
+- **Trade execution**: `useTrade()` builds composite transactions per the intent model
+  (e.g., buy-no = `mint_pair` + `trade_yes` sell). Includes idempotent ATA creation.
+- **Balance polling**: `useBalances()` reads USDC/Yes/No token balances every 5s with
+  post-trade refresh.
+- **PDA derivation**: browser-safe (`TextEncoder`/`Uint8Array`) — no Node.js `Buffer` dependency.
+  Phoenix PDAs (vault, seat, log authority) are derived manually to avoid the `phoenix-sdk`
+  dependency in the browser bundle.
+
+**Dev server note**: Turbopack hangs on `@coral-xyz/anchor`'s dependency tree. The dev script
+uses `next dev --webpack` instead.
 
 ## Quick Start
 
@@ -115,13 +141,12 @@ connection errors even though the validator is running correctly.
 - Phoenix owns the Yes/USDC order book. The No-side trading experience is derived from the same
   Yes book rather than a separate No market.
 - The automation layer is responsible for Phoenix market bootstrap and seat workflow on devnet.
-- The current bootstrap contract assumes the Phoenix Seat Manager program
+- The bootstrap assumes the Phoenix Seat Manager program
   `PSMxQbAoDWDbvd9ezQJgARyq6R9L5kJAasaLDVcZwf1`, zero Phoenix taker fees, and a market authority
   mode of `seat-manager`.
-- All Phoenix orders for Meridian must expire at or before the Meridian market close. Post-close
-  order entry and cancellation remain follow-on trading work, not bootstrap behavior.
-- This scaffold remains intentionally narrow. The actual Phoenix trading flows and Pyth settlement
-  transactions still land in follow-on issues.
+- All Phoenix orders for Meridian must expire at or before the Meridian market close.
+- The `trade_yes` instruction performs a Phoenix CPI for IOC order execution. The frontend
+  composes multi-instruction intents (buy-no, sell-no) into single transactions.
 
 ## Risks and Limitations
 
