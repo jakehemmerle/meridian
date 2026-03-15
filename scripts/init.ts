@@ -1,7 +1,7 @@
 /**
  * Meridian Config Initialization — Idempotent
  *
- * On local: creates a USDC mint, airdrops SOL, updates .env.local, then initializes config.
+ * On local: creates a USDC mint, airdrops SOL, updates .env, then initializes config.
  * On devnet: reads existing USDC mint from env, initializes config.
  * Safe to run multiple times.
  *

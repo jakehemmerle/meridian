@@ -85,7 +85,8 @@ uses `next dev --webpack` instead.
 
 ## Quick Start
 
-1. Copy `.env.example` to `.env`.
+1. Copy `.env.example` to `.env` (local validator config).
+   For devnet, also copy `.env.devnet.example` to `.env.devnet`.
 2. Confirm `ANCHOR_WALLET` points to an existing Solana keypair and keep the shared and
    `NEXT_PUBLIC_*` values aligned.
 3. Install JavaScript dependencies with `pnpm install`.
@@ -121,8 +122,10 @@ connection errors even though the validator is running correctly.
   because suites share a config PDA and cannot run in one process. Do not use
   `anchor test` or `pnpm test:integration` for the full suite.
 - `pnpm typecheck`: frontend and automation type checks
-- `pnpm dev:web`: start the Next.js frontend with root `.env`
-- `pnpm dev:automation`: start the automation service with root `.env`
+- `pnpm dev:web`: start the Next.js frontend with local `.env`
+- `pnpm dev:web:devnet`: start the Next.js frontend with `.env.devnet`
+- `pnpm dev:automation`: start the automation service with local `.env`
+- `pnpm dev:automation:devnet`: start the automation service with `.env.devnet`
 - `pnpm deploy:devnet`: deploy the Anchor program to Solana devnet with
   `keys/meridian-program.json`
 

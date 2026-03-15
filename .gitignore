@@ -6,7 +6,7 @@ target/
 *.tsbuildinfo
 .anchor/
 .env
-.env.local
+.env.devnet
 .DS_Store
 
 

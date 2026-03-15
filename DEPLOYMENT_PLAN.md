@@ -235,9 +235,9 @@ Pyth equity feeds (AAPL, META, etc.) only update during US market hours (9:30am-
 
 2. **Register CLI in package.json**
    ```json
-   "automation:morning": "dotenv -e .env -- pnpm exec tsx automation/src/cli.ts morning",
-   "automation:afternoon": "dotenv -e .env -- pnpm exec tsx automation/src/cli.ts afternoon",
-   "automation:settle": "dotenv -e .env -- pnpm exec tsx automation/src/cli.ts settle"
+   "automation:morning": "dotenv -e .env.devnet -- pnpm exec tsx automation/src/cli.ts morning",
+   "automation:afternoon": "dotenv -e .env.devnet -- pnpm exec tsx automation/src/cli.ts afternoon",
+   "automation:settle": "dotenv -e .env.devnet -- pnpm exec tsx automation/src/cli.ts settle"
    ```
 
 3. **Create Dockerfile** (`automation/Dockerfile`)
@@ -368,7 +368,7 @@ Pyth equity feeds (AAPL, META, etc.) only update during US market hours (9:30am-
    - Troubleshooting: devnet SOL faucet, USDC faucet, common errors
    - Environment variable reference table
 
-3. **Update .env.example**
+3. **Update .env.devnet.example**
    - Add comments explaining each variable
    - Add Helius RPC URL placeholder
    - Add Cloud Run URL placeholder for `NEXT_PUBLIC_SOLANA_RPC_URL`

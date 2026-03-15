@@ -74,7 +74,7 @@ interface MarketsLandingPageProps {
 }
 
 export function MarketsLandingPage({ onSelectMarket }: MarketsLandingPageProps) {
-  const { connected, connect } = useWallet();
+  const { connected } = useWallet();
   const { markets, loading, refresh } = useMarkets();
 
   return (
@@ -93,9 +93,7 @@ export function MarketsLandingPage({ onSelectMarket }: MarketsLandingPageProps) 
       {!connected && (
         <section className="panel">
           <p>Connect your wallet to discover markets.</p>
-          <button type="button" onClick={() => connect()}>
-            Connect Wallet
-          </button>
+          <WalletButton />
         </section>
       )}
 

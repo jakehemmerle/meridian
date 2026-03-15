@@ -1,11 +1,11 @@
 /**
- * Meridian Devnet Demo — End-to-End Lifecycle
+ * Meridian Demo — End-to-End Lifecycle
  *
- * Exercises the full Meridian lifecycle against devnet in a single script:
+ * Exercises the full Meridian lifecycle in a single script:
  * create market → create Phoenix order book → mint pairs → trade → close → settle → redeem
  *
- * Usage: pnpm demo
- * Prerequisites: see .env.example for required environment variables
+ * Usage: pnpm demo (local) | pnpm demo:devnet (devnet)
+ * Prerequisites: see .env.example / .env.devnet.example for required environment variables
  */
 
 import * as anchor from "@coral-xyz/anchor";

@@ -5,7 +5,7 @@
   "scripts": {
     "domain:build": "pnpm --filter @meridian/domain build",
     "testkit:build": "pnpm --filter @meridian/testkit build",
-    "bootstrap:check": "pnpm domain:build && dotenv -e .env -- pnpm exec tsx automation/src/index.ts",
+    "bootstrap:check": "pnpm domain:build && dotenv -e .env.devnet -- pnpm exec tsx automation/src/index.ts",
     "build": "pnpm domain:build && anchor build && pnpm --filter @meridian/app build && pnpm --filter @meridian/automation build",
     "test": "cargo test --manifest-path programs/meridian/Cargo.toml && pnpm domain:build && pnpm testkit:build && pnpm exec tsx --test tests/**/*.test.ts",
     "test:rust": "cargo test --manifest-path programs/meridian/Cargo.toml",
@@ -19,9 +19,16 @@
     "test:e2e": "pnpm --filter @meridian/app test:e2e",
     "typecheck": "pnpm --filter @meridian/domain typecheck && pnpm --filter @meridian/testkit typecheck && pnpm --filter @meridian/app typecheck && pnpm --filter @meridian/automation typecheck",
     "dev:web": "pnpm domain:build && dotenv -e .env -- pnpm --filter @meridian/app dev",
+    "dev:web:devnet": "pnpm domain:build && dotenv -e .env.devnet -- pnpm --filter @meridian/app dev",
     "dev:automation": "pnpm domain:build && dotenv -e .env -- pnpm --filter @meridian/automation dev",
-    "deploy:devnet": "dotenv -e .env -- anchor deploy --provider.cluster devnet --program-name meridian --program-keypair keys/meridian-program.json",
+    "dev:automation:devnet": "pnpm domain:build && dotenv -e .env.devnet -- pnpm --filter @meridian/automation dev",
+    "deploy:devnet": "dotenv -e .env.devnet -- anchor deploy --provider.cluster devnet --program-name meridian --program-keypair keys/meridian-program.json",
     "demo": "dotenv -e .env -- pnpm exec tsx scripts/demo.ts",
+    "demo:devnet": "dotenv -e .env.devnet -- pnpm exec tsx scripts/demo.ts",
+    "seed": "dotenv -e .env -- pnpm exec tsx scripts/seed-browser-demo.ts --local",
+    "seed:reset": "dotenv -e .env -- pnpm exec tsx scripts/seed-browser-demo.ts --local --reset",
+    "seed:devnet": "dotenv -e .env.devnet -- pnpm exec tsx scripts/seed-browser-demo.ts",
+    "seed:devnet:reset": "dotenv -e .env.devnet -- pnpm exec tsx scripts/seed-browser-demo.ts --reset",
     "deploy:web": "bash scripts/deploy-web.sh"
   },
   "devDependencies": {
