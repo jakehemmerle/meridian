@@ -12,23 +12,11 @@ import { useOrderBook } from "../../../features/trading/use-orderbook";
 import { useUserPosition } from "../../../features/trading/use-position";
 import { useMarketAccount } from "../../../lib/solana/use-market-account";
 import { useTokenBalances } from "../../../lib/solana/use-token-balance";
-import { readPublicMeridianEnv } from "../../../lib/env/public";
+import { getUsdcMint } from "../../../lib/solana/usdc-mint";
+import { formatTokenAmount } from "../../../lib/format/currency";
 import { PageShell } from "../../../components/page-shell";
 
 const MERIDIAN_TICKERS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"];
-
-function formatTokenAmount(amount: bigint): string {
-  return (Number(amount) / 1_000_000).toFixed(2);
-}
-
-function getUsdcMint(): PublicKey {
-  if (typeof window !== "undefined") {
-    const e2eMint = (window as unknown as Record<string, string>).__E2E_USDC_MINT;
-    if (e2eMint) return new PublicKey(e2eMint);
-  }
-  const env = readPublicMeridianEnv();
-  return new PublicKey(env.usdcMint);
-}
 
 export default function TradePage() {
   const params = useParams<{ market: string }>();

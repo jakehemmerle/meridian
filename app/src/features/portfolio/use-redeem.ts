@@ -23,7 +23,7 @@ export interface RedeemMarketAccounts {
   usdcMint: PublicKey;
 }
 
-export function useRedeem(marketAccounts: RedeemMarketAccounts): RedeemExecution {
+export function useRedeem(marketAccounts: RedeemMarketAccounts | null): RedeemExecution {
   const { connection } = useConnection();
   const { sendTransaction } = useWallet();
   const anchorWallet = useAnchorWallet();
@@ -35,6 +35,10 @@ export function useRedeem(marketAccounts: RedeemMarketAccounts): RedeemExecution
     async (pairs: bigint): Promise<string> => {
       if (!anchorWallet || !sendTransaction) {
         throw new Error("Wallet not connected");
+      }
+
+      if (!marketAccounts) {
+        throw new Error("Market accounts not loaded");
       }
 
       setStatus("signing");

@@ -2,24 +2,14 @@
 
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
 import { PortfolioPositionList, RedeemPanel } from "../../features/portfolio";
 import { usePortfolioPositions } from "../../features/portfolio/use-portfolio";
 import { useMarketList } from "../../features/markets/use-market-list";
 import { useRedeem, type RedeemMarketAccounts } from "../../features/portfolio/use-redeem";
 import { useMarketAccount } from "../../lib/solana/use-market-account";
-import { readPublicMeridianEnv } from "../../lib/env/public";
+import { getUsdcMint } from "../../lib/solana/usdc-mint";
 import { PageShell } from "../../components/page-shell";
 import type { MarketOutcome } from "../../features/markets/model";
-
-function getUsdcMint(): PublicKey {
-  if (typeof window !== "undefined") {
-    const e2eMint = (window as unknown as Record<string, string>).__E2E_USDC_MINT;
-    if (e2eMint) return new PublicKey(e2eMint);
-  }
-  const env = readPublicMeridianEnv();
-  return new PublicKey(env.usdcMint);
-}
 
 export default function PortfolioPage() {
   const { connected, connect } = useWallet();
@@ -105,7 +95,7 @@ function SettledPositionRedeem({
   const marketData = useMarketAccount(marketId);
   const usdcMint = getUsdcMint();
 
-  const redeemAccounts: RedeemMarketAccounts = marketData
+  const redeemAccounts: RedeemMarketAccounts | null = marketData
     ? {
         marketPda: marketData.marketPda,
         configPda: marketData.configPda,
@@ -114,14 +104,7 @@ function SettledPositionRedeem({
         noMint: marketData.noMint,
         usdcMint,
       }
-    : {
-        marketPda: PublicKey.default,
-        configPda: PublicKey.default,
-        vaultPda: PublicKey.default,
-        yesMint: PublicKey.default,
-        noMint: PublicKey.default,
-        usdcMint: PublicKey.default,
-      };
+    : null;
 
   const { redeem, status } = useRedeem(redeemAccounts);
 

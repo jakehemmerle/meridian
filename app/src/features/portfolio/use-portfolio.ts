@@ -2,27 +2,25 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
-import {
-  getAssociatedTokenAddressSync,
-  getAccount,
-  TokenAccountNotFoundError,
-} from "@solana/spl-token";
+import type { Connection, PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import {
   deserializeMeridianMarket,
   MERIDIAN_MARKET_ACCOUNT_SIZE,
 } from "../../lib/solana/market-account";
+import { MERIDIAN_PROGRAM_ID } from "../../lib/solana/program";
 import type { PortfolioPosition } from "./model";
-
-const PROGRAM_ID = new PublicKey(
-  "2xETnXSFhwUs9c1BJZHwWib2jQMnYdUGL3QbtewVfA2y",
-);
 
 const POLL_INTERVAL_MS = 15_000;
 
 export interface UsePortfolioPositionsResult {
   positions: PortfolioPosition[];
   loading: boolean;
+}
+
+async function getAtaBalance(connection: Connection, ata: PublicKey): Promise<bigint> {
+  const info = await connection.getTokenAccountBalance(ata).catch(() => null);
+  return BigInt(info?.value.amount ?? "0");
 }
 
 export function usePortfolioPositions(): UsePortfolioPositionsResult {
@@ -40,7 +38,7 @@ export function usePortfolioPositions(): UsePortfolioPositionsResult {
     }
 
     try {
-      const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
+      const accounts = await connection.getProgramAccounts(MERIDIAN_PROGRAM_ID, {
         filters: [{ dataSize: MERIDIAN_MARKET_ACCOUNT_SIZE }],
       });
 
@@ -53,22 +51,10 @@ export function usePortfolioPositions(): UsePortfolioPositionsResult {
         const yesAta = getAssociatedTokenAddressSync(market.yesMint, publicKey);
         const noAta = getAssociatedTokenAddressSync(market.noMint, publicKey);
 
-        let yesQuantity = 0n;
-        let noQuantity = 0n;
-
-        try {
-          const yesAccount = await getAccount(connection, yesAta);
-          yesQuantity = yesAccount.amount;
-        } catch (err) {
-          if (!(err instanceof TokenAccountNotFoundError)) throw err;
-        }
-
-        try {
-          const noAccount = await getAccount(connection, noAta);
-          noQuantity = noAccount.amount;
-        } catch (err) {
-          if (!(err instanceof TokenAccountNotFoundError)) throw err;
-        }
+        const [yesQuantity, noQuantity] = await Promise.all([
+          getAtaBalance(connection, yesAta),
+          getAtaBalance(connection, noAta),
+        ]);
 
         if (yesQuantity > 0n) {
           result.push({
@@ -76,7 +62,7 @@ export function usePortfolioPositions(): UsePortfolioPositionsResult {
             ticker: market.ticker,
             side: "yes",
             quantity: yesQuantity,
-            averageEntryPriceMicros: 0n, // Entry tracking requires tx history parsing
+            averageEntryPriceMicros: 0n,
             markPriceMicros: null,
           });
         }
