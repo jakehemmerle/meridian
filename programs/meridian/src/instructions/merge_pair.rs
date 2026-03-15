@@ -1,9 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Transfer};
 
-use crate::{
-    account_types::MergePairAccounts, MeridianError, MARKET_SEED, ONE_USDC,
-};
+use crate::{account_types::MergePairAccounts, MeridianError, ONE_USDC};
 
 pub fn merge_pair(ctx: Context<MergePairAccounts>, pairs: u64) -> Result<()> {
     let market = &mut ctx.accounts.market;
@@ -40,18 +38,9 @@ pub fn merge_pair(ctx: Context<MergePairAccounts>, pairs: u64) -> Result<()> {
     )?;
 
     // Transfer USDC from vault to user (market PDA signs)
-    let market = &ctx.accounts.market;
-    let ticker_byte = [market.ticker as u8];
-    let trading_day_bytes = market.trading_day.to_le_bytes();
-    let strike_price_bytes = market.strike_price.to_le_bytes();
-    let bump = [market.bump];
-    let signer_seeds: &[&[&[u8]]] = &[&[
-        MARKET_SEED,
-        &ticker_byte,
-        &trading_day_bytes,
-        &strike_price_bytes,
-        &bump,
-    ]];
+    let seed_parts = ctx.accounts.market.signer_seed_parts();
+    let seeds = seed_parts.as_seeds();
+    let signer_seeds: &[&[&[u8]]] = &[&seeds];
 
     token::transfer(
         CpiContext::new_with_signer(

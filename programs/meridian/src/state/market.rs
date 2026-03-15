@@ -1,8 +1,27 @@
 use anchor_lang::prelude::*;
 
-use crate::{MeridianError, ONE_USDC, ORACLE_FEED_ID_BYTES};
+use crate::{MeridianError, MARKET_SEED, ONE_USDC, ORACLE_FEED_ID_BYTES};
 
 use super::{MeridianConfig, MarketOutcome, MarketPhase, OraclePriceSnapshot, Ticker};
+
+pub struct MarketSignerSeeds {
+    pub ticker: [u8; 1],
+    pub trading_day: [u8; 4],
+    pub strike_price: [u8; 8],
+    pub bump: [u8; 1],
+}
+
+impl MarketSignerSeeds {
+    pub fn as_seeds(&self) -> [&[u8]; 5] {
+        [
+            MARKET_SEED,
+            &self.ticker,
+            &self.trading_day,
+            &self.strike_price,
+            &self.bump,
+        ]
+    }
+}
 
 #[account]
 #[derive(Debug, InitSpace)]
@@ -282,5 +301,14 @@ impl MeridianMarket {
 
     pub fn is_unsettled(&self) -> bool {
         matches!(self.phase, MarketPhase::Trading | MarketPhase::Closed)
+    }
+
+    pub fn signer_seed_parts(&self) -> MarketSignerSeeds {
+        MarketSignerSeeds {
+            ticker: [self.ticker as u8],
+            trading_day: self.trading_day.to_le_bytes(),
+            strike_price: self.strike_price.to_le_bytes(),
+            bump: [self.bump],
+        }
     }
 }
