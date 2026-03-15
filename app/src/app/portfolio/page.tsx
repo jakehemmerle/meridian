@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
 import { PortfolioPositionList, RedeemPanel } from "../../features/portfolio";
 import { usePortfolioPositions } from "../../features/portfolio/use-portfolio";
 import { useMarketList } from "../../features/markets/use-market-list";
@@ -96,7 +95,7 @@ function SettledPositionRedeem({
   const marketData = useMarketAccount(marketId);
   const usdcMint = getUsdcMint();
 
-  const redeemAccounts: RedeemMarketAccounts = marketData
+  const redeemAccounts: RedeemMarketAccounts | null = marketData
     ? {
         marketPda: marketData.marketPda,
         configPda: marketData.configPda,
@@ -105,14 +104,7 @@ function SettledPositionRedeem({
         noMint: marketData.noMint,
         usdcMint,
       }
-    : {
-        marketPda: PublicKey.default,
-        configPda: PublicKey.default,
-        vaultPda: PublicKey.default,
-        yesMint: PublicKey.default,
-        noMint: PublicKey.default,
-        usdcMint: PublicKey.default,
-      };
+    : null;
 
   const { redeem, status } = useRedeem(redeemAccounts);
 
