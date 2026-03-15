@@ -1,18 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 
 import type { MarketSummary } from "./model";
 import { formatMarketKey } from "./model";
 import { useMarketList } from "./use-market-list";
+import { formatMicros } from "../../lib/format";
 
 import { PageShell } from "../../components/page-shell";
-
-function formatMicros(micros: bigint): string {
-  const dollars = Number(micros) / 1_000_000;
-  return `$${dollars.toFixed(2)}`;
-}
 
 interface MarketDiscoveryListProps {
   markets: MarketSummary[];
@@ -20,6 +17,16 @@ interface MarketDiscoveryListProps {
 }
 
 export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListProps) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, MarketSummary[]>();
+    for (const market of markets) {
+      const existing = map.get(market.ticker) ?? [];
+      existing.push(market);
+      map.set(market.ticker, existing);
+    }
+    return map;
+  }, [markets]);
+
   if (loading) {
     return (
       <section className="panel">
@@ -38,14 +45,6 @@ export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListPro
     );
   }
 
-  // Group markets by ticker
-  const grouped = new Map<string, MarketSummary[]>();
-  for (const market of markets) {
-    const existing = grouped.get(market.ticker) ?? [];
-    existing.push(market);
-    grouped.set(market.ticker, existing);
-  }
-
   return (
     <section className="panel">
       <h2>Markets</h2>
@@ -53,23 +52,26 @@ export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListPro
         <div key={ticker}>
           <h3>{ticker}</h3>
           <ul>
-            {tickerMarkets.map((market) => (
-              <li key={formatMarketKey(market)} data-testid={`market-item-${market.ticker}`}>
-                <Link href={`/trade/${market.id}`}>
-                  <span>{market.ticker}</span>
-                  <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
-                  <span className={`phase-badge phase-${market.phase.toLowerCase()}`}>
-                    {market.phase}
-                  </span>
-                  {market.outcome !== "Unsettled" && (
-                    <span>{market.outcome}</span>
-                  )}
-                  {market.yesPriceMicros !== null && (
-                    <span>Yes: {formatMicros(market.yesPriceMicros)}</span>
-                  )}
-                </Link>
-              </li>
-            ))}
+            {tickerMarkets.map((market) => {
+              const key = formatMarketKey(market);
+              return (
+                <li key={key} data-testid={`market-item-${key}`}>
+                  <Link href={`/trade/${market.id}`}>
+                    <span>{market.ticker}</span>
+                    <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
+                    <span className={`phase-badge phase-${market.phase.toLowerCase()}`}>
+                      {market.phase}
+                    </span>
+                    {market.outcome !== "Unsettled" && (
+                      <span>{market.outcome}</span>
+                    )}
+                    {market.yesPriceMicros !== null && (
+                      <span>Yes: {formatMicros(market.yesPriceMicros)}</span>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}

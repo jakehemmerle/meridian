@@ -1,19 +1,16 @@
+import { useMemo } from "react";
 import type { HistoryEvent, TradeEvent, RedeemEvent } from "./model";
+import { formatMicros } from "../../lib/format";
 
-const PRICE_UNIT = 1_000_000;
-
-function formatUsd(micros: number): string {
-  return `$${(micros / PRICE_UNIT).toFixed(2)}`;
-}
+const SIDE_LABELS: Record<TradeEvent["side"], string> = {
+  "buy-yes": "Buy Yes",
+  "buy-no": "Buy No",
+  "sell-yes": "Sell Yes",
+  "sell-no": "Sell No",
+};
 
 function formatSide(side: TradeEvent["side"]): string {
-  const labels: Record<TradeEvent["side"], string> = {
-    "buy-yes": "Buy Yes",
-    "buy-no": "Buy No",
-    "sell-yes": "Sell Yes",
-    "sell-no": "Sell No",
-  };
-  return labels[side];
+  return SIDE_LABELS[side];
 }
 
 function TradeRow({ event }: { event: TradeEvent }) {
@@ -22,7 +19,7 @@ function TradeRow({ event }: { event: TradeEvent }) {
       <span>{event.ticker}</span>
       <span>{formatSide(event.side)}</span>
       <span>{event.quantity}</span>
-      <span>{formatUsd(event.priceMicros)}</span>
+      <span>{formatMicros(event.priceMicros)}</span>
     </li>
   );
 }
@@ -32,7 +29,7 @@ function RedeemRow({ event }: { event: RedeemEvent }) {
     <li>
       <span>{event.ticker}</span>
       <span>Redeem</span>
-      <span>{formatUsd(event.payoutMicros)}</span>
+      <span>{formatMicros(event.payoutMicros)}</span>
     </li>
   );
 }
@@ -42,6 +39,11 @@ interface HistoryListProps {
 }
 
 export function HistoryList({ events }: HistoryListProps) {
+  const sorted = useMemo(
+    () => [...events].sort((a, b) => b.timestampMs - a.timestampMs),
+    [events],
+  );
+
   if (events.length === 0) {
     return (
       <section className="panel">
@@ -50,8 +52,6 @@ export function HistoryList({ events }: HistoryListProps) {
       </section>
     );
   }
-
-  const sorted = [...events].sort((a, b) => b.timestampMs - a.timestampMs);
 
   return (
     <section className="panel">

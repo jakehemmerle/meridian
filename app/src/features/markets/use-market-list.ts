@@ -2,16 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
 import {
   deserializeMeridianMarket,
   MERIDIAN_MARKET_ACCOUNT_SIZE,
 } from "../../lib/solana/market-account";
+import { MERIDIAN_PROGRAM_ID } from "../../lib/solana/program";
 import type { MarketSummary } from "./model";
-
-const PROGRAM_ID = new PublicKey(
-  "2xETnXSFhwUs9c1BJZHwWib2jQMnYdUGL3QbtewVfA2y",
-);
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -28,10 +24,13 @@ export function useMarketList(): UseMarketListResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const fetchingRef = useRef(false);
 
   const fetchMarkets = useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
-      const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
+      const accounts = await connection.getProgramAccounts(MERIDIAN_PROGRAM_ID, {
         filters: [{ dataSize: MERIDIAN_MARKET_ACCOUNT_SIZE }],
       });
 
@@ -54,12 +53,21 @@ export function useMarketList(): UseMarketListResult {
         };
       });
 
-      setMarkets(parsed);
+      const serialized = JSON.stringify(parsed, (_k, v) =>
+        typeof v === "bigint" ? v.toString() : v,
+      );
+      setMarkets((prev) => {
+        const prevSerialized = JSON.stringify(prev, (_k, v) =>
+          typeof v === "bigint" ? v.toString() : v,
+        );
+        return serialized === prevSerialized ? prev : parsed;
+      });
       setError(null);
     } catch (err) {
       if (!mountedRef.current) return;
       setError(err instanceof Error ? err.message : "Failed to fetch markets");
     } finally {
+      fetchingRef.current = false;
       if (mountedRef.current) setLoading(false);
     }
   }, [connection]);
