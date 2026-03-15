@@ -21,7 +21,8 @@
     "dev:web": "pnpm domain:build && dotenv -e .env -- pnpm --filter @meridian/app dev",
     "dev:automation": "pnpm domain:build && dotenv -e .env -- pnpm --filter @meridian/automation dev",
     "deploy:devnet": "dotenv -e .env -- anchor deploy --provider.cluster devnet --program-name meridian --program-keypair keys/meridian-program.json",
-    "demo": "dotenv -e .env -- pnpm exec tsx scripts/demo.ts"
+    "demo": "dotenv -e .env -- pnpm exec tsx scripts/demo.ts",
+    "deploy:web": "bash scripts/deploy-web.sh"
   },
   "devDependencies": {
     "@coral-xyz/anchor": "0.32.1",

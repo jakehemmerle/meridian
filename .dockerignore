@@ -1,0 +1,48 @@
+# Rust / Anchor
+programs/
+target/
+Cargo.toml
+Cargo.lock
+Anchor.toml
+migrations/
+
+# Tests
+tests/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+
+# Automation
+automation/
+
+# Keys & secrets
+keys/
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Node modules (rebuilt in Docker)
+node_modules/
+
+# Build artifacts
+app/.next/
+packages/domain/dist/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Docs & misc
+docs/
+*.md
+state.json
+research-*.md
+requirements.md
+mail/
+scripts/
