@@ -1,9 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, MintTo, Transfer};
 
-use crate::{
-    account_types::MintPairAccounts, MeridianError, MARKET_SEED, ONE_USDC,
-};
+use crate::{account_types::MintPairAccounts, MeridianError, ONE_USDC};
 
 pub fn mint_pair(ctx: Context<MintPairAccounts>, pairs: u64) -> Result<()> {
     let market = &mut ctx.accounts.market;
@@ -26,21 +24,11 @@ pub fn mint_pair(ctx: Context<MintPairAccounts>, pairs: u64) -> Result<()> {
         amount,
     )?;
 
-    // Build market PDA signer seeds
-    let market = &ctx.accounts.market;
-    let ticker_byte = [market.ticker as u8];
-    let trading_day_bytes = market.trading_day.to_le_bytes();
-    let strike_price_bytes = market.strike_price.to_le_bytes();
-    let bump = [market.bump];
-    let signer_seeds: &[&[&[u8]]] = &[&[
-        MARKET_SEED,
-        &ticker_byte,
-        &trading_day_bytes,
-        &strike_price_bytes,
-        &bump,
-    ]];
+    // Mint Yes and No tokens to user (market PDA signs)
+    let seed_parts = ctx.accounts.market.signer_seed_parts();
+    let seeds = seed_parts.as_seeds();
+    let signer_seeds: &[&[&[u8]]] = &[&seeds];
 
-    // Mint Yes tokens to user
     token::mint_to(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
