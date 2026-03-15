@@ -1,10 +1,5 @@
 import type { HistoryEvent, TradeEvent, RedeemEvent } from "./model";
-
-const PRICE_UNIT = 1_000_000;
-
-function formatUsd(micros: number): string {
-  return `$${(micros / PRICE_UNIT).toFixed(2)}`;
-}
+import { formatUsd } from "../../lib/format";
 
 function formatSide(side: TradeEvent["side"]): string {
   const labels: Record<TradeEvent["side"], string> = {

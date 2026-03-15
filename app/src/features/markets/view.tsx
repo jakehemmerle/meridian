@@ -8,11 +8,7 @@ import { formatMarketKey } from "./model";
 import { useMarketList } from "./use-market-list";
 
 import { PageShell } from "../../components/page-shell";
-
-function formatMicros(micros: bigint): string {
-  const dollars = Number(micros) / 1_000_000;
-  return `$${dollars.toFixed(2)}`;
-}
+import { formatUsdBigint } from "../../lib/format";
 
 interface MarketDiscoveryListProps {
   markets: MarketSummary[];
@@ -57,7 +53,7 @@ export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListPro
               <li key={formatMarketKey(market)} data-testid={`market-item-${market.ticker}`}>
                 <Link href={`/trade/${market.id}`}>
                   <span>{market.ticker}</span>
-                  <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
+                  <span>Strike: {formatUsdBigint(market.strikePriceMicros)}</span>
                   <span className={`phase-badge phase-${market.phase.toLowerCase()}`}>
                     {market.phase}
                   </span>
@@ -65,7 +61,7 @@ export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListPro
                     <span>{market.outcome}</span>
                   )}
                   {market.yesPriceMicros !== null && (
-                    <span>Yes: {formatMicros(market.yesPriceMicros)}</span>
+                    <span>Yes: {formatUsdBigint(market.yesPriceMicros)}</span>
                   )}
                 </Link>
               </li>

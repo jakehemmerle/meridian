@@ -1,3 +1,5 @@
+import { formatUsd } from "../../lib/format";
+
 export type TradeIntent = "buy-yes" | "buy-no" | "sell-yes" | "sell-no";
 
 export interface TradingIntentDescriptor {
@@ -63,10 +65,6 @@ export interface PayoffInfo {
   formatDisplay: (ticker: string, strikePriceMicros: number) => string;
 }
 
-function formatMicrosAsDollars(micros: number): string {
-  return `$${(micros / PRICE_UNIT).toFixed(2)}`;
-}
-
 export function computePayoff(
   intent: TradeIntent,
   priceMicros: number,
@@ -79,9 +77,9 @@ export function computePayoff(
     payoutMicros: PRICE_UNIT,
     condition,
     formatDisplay(ticker: string, strikePriceMicros: number) {
-      const cost = formatMicrosAsDollars(priceMicros);
-      const payout = formatMicrosAsDollars(PRICE_UNIT);
-      const strike = formatMicrosAsDollars(strikePriceMicros);
+      const cost = formatUsd(priceMicros);
+      const payout = formatUsd(PRICE_UNIT);
+      const strike = formatUsd(strikePriceMicros);
       return `You pay ${cost}. You win ${payout} if ${ticker} closes ${condition} ${strike}.`;
     },
   };

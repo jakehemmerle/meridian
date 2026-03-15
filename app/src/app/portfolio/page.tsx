@@ -8,18 +8,9 @@ import { usePortfolioPositions } from "../../features/portfolio/use-portfolio";
 import { useMarketList } from "../../features/markets/use-market-list";
 import { useRedeem, type RedeemMarketAccounts } from "../../features/portfolio/use-redeem";
 import { useMarketAccount } from "../../lib/solana/use-market-account";
-import { readPublicMeridianEnv } from "../../lib/env/public";
+import { getUsdcMint } from "../../lib/usdc-mint";
 import { PageShell } from "../../components/page-shell";
 import type { MarketOutcome } from "../../features/markets/model";
-
-function getUsdcMint(): PublicKey {
-  if (typeof window !== "undefined") {
-    const e2eMint = (window as unknown as Record<string, string>).__E2E_USDC_MINT;
-    if (e2eMint) return new PublicKey(e2eMint);
-  }
-  const env = readPublicMeridianEnv();
-  return new PublicKey(env.usdcMint);
-}
 
 export default function PortfolioPage() {
   const { connected, connect } = useWallet();
