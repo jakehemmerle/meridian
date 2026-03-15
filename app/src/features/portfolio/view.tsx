@@ -1,25 +1,12 @@
 import type { PortfolioPosition } from "./model";
 import type { MarketPhase, MarketOutcome } from "../markets/model";
-
-const PRICE_UNIT = 1_000_000;
-
-function formatUsd(micros: number): string {
-  const abs = Math.abs(micros);
-  const formatted = `$${(abs / PRICE_UNIT).toFixed(2)}`;
-  if (micros < 0) return `-${formatted}`;
-  return `+${formatted}`;
-}
-
-function formatPayout(quantity: bigint): string {
-  const dollars = Number(quantity) / PRICE_UNIT;
-  return `$${dollars.toFixed(2)}`;
-}
+import { formatUsdSigned, formatUsdBigint } from "../../lib/format";
 
 function computePnl(position: PortfolioPosition): string {
   if (position.markPriceMicros === null) return "--";
   const diff = Number(position.markPriceMicros - position.averageEntryPriceMicros);
   const pnl = diff * Number(position.quantity);
-  return formatUsd(pnl);
+  return formatUsdSigned(pnl);
 }
 
 // --- PortfolioPositionList ---
@@ -90,7 +77,7 @@ export function RedeemPanel({
     );
   }
 
-  const payoutDisplay = formatPayout(quantity * BigInt(PRICE_UNIT));
+  const payoutDisplay = formatUsdBigint(quantity * 1_000_000n);
 
   return (
     <section className="panel">

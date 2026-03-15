@@ -8,6 +8,7 @@ import {
   computePayoff,
   getCountdownSeconds,
 } from "./model";
+import { formatUsd } from "../../lib/format";
 
 interface TradingScreenProps {
   ticker: string;
@@ -17,10 +18,6 @@ interface TradingScreenProps {
   marketCloseUtc: number;
   position: UserPosition | null;
   onIntent: (intent: TradeIntent) => void;
-}
-
-function formatPrice(micros: number): string {
-  return `$${(micros / 1_000_000).toFixed(2)}`;
 }
 
 function formatCountdown(totalSeconds: number): string {
@@ -54,7 +51,7 @@ function LadderView({
           {mergeLevels(ladder).map((row, i) => (
             <tr key={i}>
               <td>{row.bidSize ?? ""}</td>
-              <td>{formatPrice(row.price)}</td>
+              <td>{formatUsd(row.price)}</td>
               <td>{row.askSize ?? ""}</td>
             </tr>
           ))}
@@ -141,7 +138,7 @@ export function TradingScreen({
     <section className="trading-screen">
       <header>
         <h2>
-          {ticker} — Strike {formatPrice(strikePriceMicros)}
+          {ticker} — Strike {formatUsd(strikePriceMicros)}
         </h2>
         {isClosed ? (
           <span data-testid="countdown-timer">Market Closed</span>
