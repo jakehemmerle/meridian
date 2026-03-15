@@ -6,9 +6,12 @@ import {
   ConnectionProvider,
   WalletProvider,
 } from "@solana/wallet-adapter-react";
+import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { clusterApiUrl } from "@solana/web3.js";
 import { readPublicMeridianEnv } from "../lib/env/public";
+
+import "@solana/wallet-adapter-react-ui/styles.css";
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -29,7 +32,7 @@ export function AppProviders({ children }: AppProvidersProps) {
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect={false}>
-        {children}
+        <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { PortfolioPositionList, RedeemPanel } from "../../features/portfolio";
 import { usePortfolioPositions } from "../../features/portfolio/use-portfolio";
 import { useMarketList } from "../../features/markets/use-market-list";
@@ -12,7 +13,7 @@ import { PageShell } from "../../components/page-shell";
 import type { MarketOutcome } from "../../features/markets/model";
 
 export default function PortfolioPage() {
-  const { connected, connect } = useWallet();
+  const { connected } = useWallet();
   const { positions, loading } = usePortfolioPositions();
   const { markets } = useMarketList();
 
@@ -21,9 +22,7 @@ export default function PortfolioPage() {
       <PageShell hero={<h1>Portfolio</h1>}>
         <section className="panel">
           <p>Connect your wallet to view positions.</p>
-          <button type="button" onClick={() => connect()}>
-            Connect Wallet
-          </button>
+          <WalletMultiButton />
         </section>
       </PageShell>
     );

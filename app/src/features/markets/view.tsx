@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
 import type { MarketSummary } from "./model";
 import { formatMarketKey } from "./model";
@@ -80,7 +81,7 @@ export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListPro
 }
 
 export function MarketsLandingPage() {
-  const { connected, connect } = useWallet();
+  const { connected } = useWallet();
   const { markets, loading } = useMarketList();
 
   return (
@@ -97,9 +98,7 @@ export function MarketsLandingPage() {
     >
       {!connected && (
         <section className="panel">
-          <button type="button" onClick={() => connect()}>
-            Connect Wallet
-          </button>
+          <WalletMultiButton />
         </section>
       )}
 

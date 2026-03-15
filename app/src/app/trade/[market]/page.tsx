@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { PublicKey } from "@solana/web3.js";
 
 import { TradingScreen } from "../../../features/trading/trading-screen";
@@ -20,7 +21,7 @@ const MERIDIAN_TICKERS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA
 
 export default function TradePage() {
   const params = useParams<{ market: string }>();
-  const { publicKey, connected, connect } = useWallet();
+  const { publicKey, connected } = useWallet();
 
   const marketData = useMarketAccount(params.market);
 
@@ -104,7 +105,7 @@ export default function TradePage() {
       {!connected && (
         <section className="panel">
           <p>Connect your wallet to trade.</p>
-          <button onClick={() => connect()}>Connect Wallet</button>
+          <WalletMultiButton />
         </section>
       )}
 

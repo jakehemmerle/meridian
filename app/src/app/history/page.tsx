@@ -1,20 +1,19 @@
 "use client";
 
 import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { HistoryList } from "../../features/history";
 import { PageShell } from "../../components/page-shell";
 
 export default function HistoryPage() {
-  const { connected, connect } = useWallet();
+  const { connected } = useWallet();
 
   if (!connected) {
     return (
       <PageShell hero={<h1>History</h1>}>
         <section className="panel">
           <p>Connect your wallet to view trade history.</p>
-          <button type="button" onClick={() => connect()}>
-            Connect Wallet
-          </button>
+          <WalletMultiButton />
         </section>
       </PageShell>
     );
