@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 
 import { TradingScreen } from "../../../features/trading/trading-screen";
 import { useTradeExecution, type MarketAccounts } from "../../../features/trading/use-trade-execution";
+import { type TradeIntent } from "../../../features/trading/model";
 import { useOrderBook } from "../../../features/trading/use-orderbook";
 import { useUserPosition } from "../../../features/trading/use-position";
 import { useMarketAccount } from "../../../lib/solana/use-market-account";
@@ -36,27 +36,31 @@ export default function TradePage() {
 
   const marketData = useMarketAccount(params.market);
 
-  const usdcMint = getUsdcMint();
+  const usdcMint = useMemo(() => getUsdcMint(), []);
 
-  const marketAccounts: MarketAccounts = marketData
-    ? {
-        marketPda: marketData.marketPda,
-        phoenixMarket: marketData.phoenixMarket,
-        configPda: marketData.configPda,
-        vaultPda: marketData.vaultPda,
-        yesMint: marketData.yesMint,
-        noMint: marketData.noMint,
-        usdcMint,
-      }
-    : {
-        marketPda: PublicKey.default,
-        phoenixMarket: PublicKey.default,
-        configPda: PublicKey.default,
-        vaultPda: PublicKey.default,
-        yesMint: PublicKey.default,
-        noMint: PublicKey.default,
-        usdcMint: PublicKey.default,
-      };
+  const marketAccounts: MarketAccounts = useMemo(
+    () =>
+      marketData
+        ? {
+            marketPda: marketData.marketPda,
+            phoenixMarket: marketData.phoenixMarket,
+            configPda: marketData.configPda,
+            vaultPda: marketData.vaultPda,
+            yesMint: marketData.yesMint,
+            noMint: marketData.noMint,
+            usdcMint,
+          }
+        : {
+            marketPda: PublicKey.default,
+            phoenixMarket: PublicKey.default,
+            configPda: PublicKey.default,
+            vaultPda: PublicKey.default,
+            yesMint: PublicKey.default,
+            noMint: PublicKey.default,
+            usdcMint: PublicKey.default,
+          },
+    [marketData, usdcMint],
+  );
 
   const tradeExecution = useTradeExecution(marketAccounts);
 
@@ -64,7 +68,7 @@ export default function TradePage() {
   const phoenixMarketAddress = marketData
     ? marketData.phoenixMarket.toBase58()
     : null;
-  const { yesLadder, noLadder, status: bookStatus } = useOrderBook(phoenixMarketAddress);
+  const { yesLadder, noLadder } = useOrderBook(phoenixMarketAddress);
 
   // Wire user position from on-chain token balances
   const { position, refresh: refreshPosition } = useUserPosition(params.market);
@@ -93,7 +97,7 @@ export default function TradePage() {
   // Quantity input state (in base lots, 1 token = 1_000_000)
   const [quantityTokens, setQuantityTokens] = useState(1);
 
-  const handleIntent = (intent: Parameters<typeof tradeExecution.execute>[0]) => {
+  const handleIntent = (intent: TradeIntent) => {
     if (!marketData) return;
     const quantityBaseLots = BigInt(quantityTokens) * 1_000_000n;
     tradeExecution.execute(intent, quantityBaseLots).catch(() => {
@@ -120,7 +124,7 @@ export default function TradePage() {
         <div>
           <div className="balances">
             <span data-testid="wallet-address">
-              {publicKey.toBase58().slice(0, 4)}...{publicKey.toBase58().slice(-4)}
+              {publicKey.toBase58().replace(/^(.{4}).+(.{4})$/, "$1...$2")}
             </span>
             <span data-testid="usdc-balance">USDC: {formatTokenAmount(balances.usdc)}</span>
             <span data-testid="yes-balance">Yes: {formatTokenAmount(balances.yes)}</span>

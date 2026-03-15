@@ -15,6 +15,19 @@ export interface UseUserPositionResult {
   refresh: () => void;
 }
 
+async function fetchTokenAmount(
+  connection: Parameters<typeof getAccount>[0],
+  ata: PublicKey,
+): Promise<bigint> {
+  try {
+    const account = await getAccount(connection, ata);
+    return account.amount;
+  } catch (err) {
+    if (err instanceof TokenAccountNotFoundError) return 0n;
+    throw err;
+  }
+}
+
 export function useUserPosition(
   marketAddress: string | null,
 ): UseUserPositionResult {
@@ -42,28 +55,13 @@ export function useUserPosition(
       }
 
       const market = deserializeMeridianMarket(accountInfo.data);
-      const yesMintKey = market.yesMint;
-      const noMintKey = market.noMint;
+      const yesAta = getAssociatedTokenAddressSync(market.yesMint, publicKey);
+      const noAta = getAssociatedTokenAddressSync(market.noMint, publicKey);
 
-      const yesAta = getAssociatedTokenAddressSync(yesMintKey, publicKey);
-      const noAta = getAssociatedTokenAddressSync(noMintKey, publicKey);
-
-      let yesQuantity = 0n;
-      let noQuantity = 0n;
-
-      try {
-        const yesAccount = await getAccount(connection, yesAta);
-        yesQuantity = yesAccount.amount;
-      } catch (err) {
-        if (!(err instanceof TokenAccountNotFoundError)) throw err;
-      }
-
-      try {
-        const noAccount = await getAccount(connection, noAta);
-        noQuantity = noAccount.amount;
-      } catch (err) {
-        if (!(err instanceof TokenAccountNotFoundError)) throw err;
-      }
+      const [yesQuantity, noQuantity] = await Promise.all([
+        fetchTokenAmount(connection, yesAta),
+        fetchTokenAmount(connection, noAta),
+      ]);
 
       if (mountedRef.current) {
         setPosition({ yesQuantity, noQuantity });
@@ -79,6 +77,7 @@ export function useUserPosition(
 
   useEffect(() => {
     mountedRef.current = true;
+    let cancelled = false;
 
     // Clean up previous subscriptions
     for (const sub of subscriptionsRef.current) {
@@ -86,20 +85,32 @@ export function useUserPosition(
     }
     subscriptionsRef.current = [];
 
-    fetchPosition();
-
-    // Set up account change subscriptions for real-time updates
+    // Fetch position and set up subscriptions using the same RPC result
     if (marketAddress && publicKey) {
       const marketPda = new PublicKey(marketAddress);
 
-      // We subscribe after initial fetch to get mint addresses
       connection.getAccountInfo(marketPda).then((info) => {
-        if (!info || !mountedRef.current) return;
+        if (!info || !mountedRef.current || cancelled) return;
         const market = deserializeMeridianMarket(info.data);
 
         const yesAta = getAssociatedTokenAddressSync(market.yesMint, publicKey);
         const noAta = getAssociatedTokenAddressSync(market.noMint, publicKey);
 
+        // Fetch initial position from the already-resolved market data
+        Promise.all([
+          fetchTokenAmount(connection, yesAta),
+          fetchTokenAmount(connection, noAta),
+        ]).then(([yesQuantity, noQuantity]) => {
+          if (mountedRef.current && !cancelled) {
+            setPosition({ yesQuantity, noQuantity });
+          }
+        }).catch(() => {
+          if (mountedRef.current && !cancelled) {
+            setPosition(null);
+          }
+        });
+
+        // Subscribe for real-time updates
         const sub1 = connection.onAccountChange(yesAta, () => {
           fetchPosition();
         });
@@ -107,12 +118,22 @@ export function useUserPosition(
           fetchPosition();
         });
 
-        subscriptionsRef.current = [sub1, sub2];
+        if (cancelled) {
+          // Cleanup ran before subscriptions were created — unsubscribe immediately
+          connection.removeAccountChangeListener(sub1);
+          connection.removeAccountChangeListener(sub2);
+        } else {
+          subscriptionsRef.current = [sub1, sub2];
+        }
       });
+    } else {
+      setPosition(null);
+      setLoading(false);
     }
 
     return () => {
       mountedRef.current = false;
+      cancelled = true;
       for (const sub of subscriptionsRef.current) {
         connection.removeAccountChangeListener(sub);
       }
