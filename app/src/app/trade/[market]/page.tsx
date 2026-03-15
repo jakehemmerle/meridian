@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { WalletButton } from "../../../components/wallet-button";
 import { PublicKey } from "@solana/web3.js";
 
 import { TradingScreen } from "../../../features/trading/trading-screen";
@@ -105,7 +105,7 @@ export default function TradePage() {
       {!connected && (
         <section className="panel">
           <p>Connect your wallet to trade.</p>
-          <WalletMultiButton />
+          <WalletButton />
         </section>
       )}
 

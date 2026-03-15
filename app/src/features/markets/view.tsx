@@ -3,14 +3,13 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-
 import type { MarketSummary } from "./model";
 import { formatMarketKey } from "./model";
 import { useMarketList } from "./use-market-list";
 import { formatMicros } from "../../lib/format";
 
 import { PageShell } from "../../components/page-shell";
+import { WalletButton } from "../../components/wallet-button";
 
 interface MarketDiscoveryListProps {
   markets: MarketSummary[];
@@ -98,7 +97,7 @@ export function MarketsLandingPage() {
     >
       {!connected && (
         <section className="panel">
-          <WalletMultiButton />
+          <WalletButton />
         </section>
       )}
 

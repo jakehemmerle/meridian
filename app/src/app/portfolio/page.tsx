@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { WalletButton } from "../../components/wallet-button";
 import { PortfolioPositionList, RedeemPanel } from "../../features/portfolio";
 import { usePortfolioPositions } from "../../features/portfolio/use-portfolio";
 import { useMarketList } from "../../features/markets/use-market-list";
@@ -22,7 +22,7 @@ export default function PortfolioPage() {
       <PageShell hero={<h1>Portfolio</h1>}>
         <section className="panel">
           <p>Connect your wallet to view positions.</p>
-          <WalletMultiButton />
+          <WalletButton />
         </section>
       </PageShell>
     );
