@@ -151,13 +151,14 @@ test.describe("Market data hooks", () => {
     ).toBeVisible({ timeout: 10_000 });
 
     // Assert both AAPL and META positions visible
+    // Quantities are in micros (6 decimals): 5 tokens = 5000000
     const aaplPosition = page.locator("[data-testid='portfolio-item-AAPL']");
     await expect(aaplPosition).toBeVisible({ timeout: 15_000 });
-    await expect(aaplPosition).toContainText("5");
+    await expect(aaplPosition).toContainText("5000000");
 
     const metaPosition = page.locator("[data-testid='portfolio-item-META']");
     await expect(metaPosition).toBeVisible();
-    await expect(metaPosition).toContainText("3");
+    await expect(metaPosition).toContainText("3000000");
   });
 
   test("market shows settlement info after settling", async ({

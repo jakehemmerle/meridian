@@ -43,7 +43,7 @@ export function PortfolioPositionList({ positions }: PortfolioPositionListProps)
       <h2>Portfolio</h2>
       <ul>
         {positions.map((pos) => (
-          <li key={`${pos.marketId}-${pos.side}`}>
+          <li key={`${pos.marketId}-${pos.side}`} data-testid={`portfolio-item-${pos.ticker}`}>
             <span>{pos.ticker}</span>
             <span>{pos.side === "yes" ? "Yes" : "No"}</span>
             <span>{pos.quantity.toString()}</span>

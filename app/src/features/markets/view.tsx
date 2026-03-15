@@ -5,6 +5,7 @@ import { MERIDIAN_TICKERS } from "@meridian/domain";
 
 import type { MarketSummary } from "./model";
 import { formatMarketKey } from "./model";
+import { useMarketList } from "./use-market-list";
 
 import { PageShell } from "../../components/page-shell";
 
@@ -42,9 +43,13 @@ export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListPro
       <h2>Markets</h2>
       <ul>
         {markets.map((market) => (
-          <li key={formatMarketKey(market)}>
+          <li key={formatMarketKey(market)} data-testid={`market-item-${market.ticker}`}>
             <span>{market.ticker}</span>
             <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
+            <span>{market.phase}</span>
+            {market.outcome !== "Unsettled" && (
+              <span>{market.outcome}</span>
+            )}
             {market.yesPriceMicros !== null && (
               <span>Yes: {formatMicros(market.yesPriceMicros)}</span>
             )}
@@ -57,6 +62,7 @@ export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListPro
 
 export function MarketsLandingPage() {
   const { connected, connect } = useWallet();
+  const { markets, loading } = useMarketList();
 
   return (
     <PageShell
@@ -93,7 +99,7 @@ export function MarketsLandingPage() {
       )}
 
       {connected && (
-        <MarketDiscoveryList markets={[]} loading={false} />
+        <MarketDiscoveryList markets={markets} loading={loading} />
       )}
     </PageShell>
   );

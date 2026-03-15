@@ -12,6 +12,7 @@ export interface MarketSummary {
   outcome: MarketOutcome;
   settledPrice: bigint | null;
   settlementTs: number | null;
+  yesOpenInterest: bigint;
 }
 
 export function formatMarketKey(market: Pick<MarketSummary, "ticker" | "tradingDay" | "id">) {

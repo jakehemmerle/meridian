@@ -20,8 +20,15 @@ const mockWallet = {
   sendTransaction: vi.fn(),
 };
 
+const mockConnection = {
+  getProgramAccounts: vi.fn().mockResolvedValue([]),
+  onAccountChange: vi.fn().mockReturnValue(0),
+  removeAccountChangeListener: vi.fn(),
+};
+
 vi.mock("@solana/wallet-adapter-react", () => ({
   useWallet: () => mockWallet,
+  useConnection: () => ({ connection: mockConnection }),
 }));
 
 describe("MarketsLandingPage", () => {

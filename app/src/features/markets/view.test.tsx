@@ -16,6 +16,7 @@ const sampleMarkets: MarketSummary[] = [
     outcome: "Unsettled",
     settledPrice: null,
     settlementTs: null,
+    yesOpenInterest: 0n,
   },
   {
     id: "m2",
@@ -28,6 +29,7 @@ const sampleMarkets: MarketSummary[] = [
     outcome: "Unsettled",
     settledPrice: null,
     settlementTs: null,
+    yesOpenInterest: 0n,
   },
 ];
 
@@ -61,6 +63,7 @@ describe("MarketDiscoveryList", () => {
         outcome: "Unsettled",
         settledPrice: null,
         settlementTs: null,
+        yesOpenInterest: 0n,
       },
     ];
     render(<MarketDiscoveryList markets={marketWithNullPrice} loading={false} />);
