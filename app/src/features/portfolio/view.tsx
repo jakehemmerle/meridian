@@ -1,6 +1,6 @@
 import type { PortfolioPosition } from "./model";
 import type { MarketPhase, MarketOutcome } from "../markets/model";
-import { formatUsdSigned, formatUsdBigint } from "../../lib/format";
+import { formatUsdSigned, formatUsdBigint, PRICE_UNIT } from "../../lib/format";
 
 function computePnl(position: PortfolioPosition): string {
   if (position.markPriceMicros === null) return "--";
@@ -77,7 +77,7 @@ export function RedeemPanel({
     );
   }
 
-  const payoutDisplay = formatUsdBigint(quantity * 1_000_000n);
+  const payoutDisplay = formatUsdBigint(quantity * BigInt(PRICE_UNIT));
 
   return (
     <section className="panel">
