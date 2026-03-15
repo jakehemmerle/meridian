@@ -1,5 +1,8 @@
 import type { PublicKey } from "@solana/web3.js";
 
+export type MarketPhase = "Trading" | "Closed" | "Settled";
+export type MarketOutcome = "Unsettled" | "Yes" | "No";
+
 export interface MarketSummary {
   id: string;
   pda: PublicKey;
@@ -8,8 +11,8 @@ export interface MarketSummary {
   tradingDay: number;
   yesPriceMicros: bigint | null;
   closeTimeTs: number;
-  phase: "trading" | "closed" | "settled";
-  outcome: "unsettled" | "yes" | "no";
+  phase: MarketPhase;
+  outcome: MarketOutcome;
   phoenixMarket: PublicKey;
   yesMint: PublicKey;
   noMint: PublicKey;

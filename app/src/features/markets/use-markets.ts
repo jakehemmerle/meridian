@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useProgram } from "../../lib/solana/program";
-import type { MarketSummary } from "./model";
+import type { MarketSummary, MarketPhase, MarketOutcome } from "./model";
 
 const TICKER_NAMES: Record<string, string> = {
   aapl: "AAPL",
@@ -21,20 +21,20 @@ function tickerToName(ticker: Record<string, unknown>): string {
 
 function phaseToString(
   phase: Record<string, unknown>,
-): "trading" | "closed" | "settled" {
-  if ("trading" in phase) return "trading";
-  if ("closed" in phase) return "closed";
-  if ("settled" in phase) return "settled";
-  return "trading";
+): MarketPhase {
+  if ("trading" in phase) return "Trading";
+  if ("closed" in phase) return "Closed";
+  if ("settled" in phase) return "Settled";
+  return "Trading";
 }
 
 function outcomeToString(
   outcome: Record<string, unknown>,
-): "unsettled" | "yes" | "no" {
-  if ("unsettled" in outcome) return "unsettled";
-  if ("yes" in outcome) return "yes";
-  if ("no" in outcome) return "no";
-  return "unsettled";
+): MarketOutcome {
+  if ("unsettled" in outcome) return "Unsettled";
+  if ("yes" in outcome) return "Yes";
+  if ("no" in outcome) return "No";
+  return "Unsettled";
 }
 
 export function useMarkets() {

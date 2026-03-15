@@ -25,8 +25,8 @@ interface TradingScreenProps {
   usdcBalance?: bigint | null;
   executing?: boolean;
   lastError?: string | null;
-  phase?: "trading" | "closed" | "settled";
-  outcome?: "unsettled" | "yes" | "no";
+  phase?: "Trading" | "Closed" | "Settled";
+  outcome?: "Unsettled" | "Yes" | "No";
   onRedeem?: (quantity: number) => Promise<void>;
   onBack?: () => void;
 }
@@ -141,7 +141,7 @@ export function TradingScreen({
   const nowUtc = Math.floor(Date.now() / 1000);
   const countdown = getCountdownSeconds(marketCloseUtc, nowUtc);
   const isClosed = countdown <= 0;
-  const isSettled = phase === "settled";
+  const isSettled = phase === "Settled";
 
   const bestPrice = getBestPriceForIntent(selectedIntent, yesLadder, noLadder);
   const payoff =
@@ -172,8 +172,8 @@ export function TradingScreen({
   const hasWinningTokens =
     isSettled &&
     position &&
-    ((outcome === "yes" && position.yesQuantity > 0n) ||
-      (outcome === "no" && position.noQuantity > 0n));
+    ((outcome === "Yes" && position.yesQuantity > 0n) ||
+      (outcome === "No" && position.noQuantity > 0n));
 
   return (
     <section className="trading-screen">
@@ -188,7 +188,7 @@ export function TradingScreen({
         </h2>
         {isSettled ? (
           <span data-testid="countdown-timer" className="phase-badge settled">
-            Settled: {outcome === "yes" ? "YES" : "NO"}
+            Settled: {outcome === "Yes" ? "YES" : "NO"}
           </span>
         ) : isClosed ? (
           <span data-testid="countdown-timer" className="phase-badge closed">
@@ -266,7 +266,7 @@ export function TradingScreen({
             className="intent-btn redeem-btn"
             onClick={() => {
               const redeemQty =
-                outcome === "yes"
+                outcome === "Yes"
                   ? Number(position!.yesQuantity) / 1_000_000
                   : Number(position!.noQuantity) / 1_000_000;
               onRedeem(Math.floor(redeemQty));

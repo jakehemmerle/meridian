@@ -40,6 +40,7 @@ export function useMarketList(): UseMarketListResult {
         const market = deserializeMeridianMarket(account.data);
         return {
           id: pubkey.toBase58(),
+          pda: pubkey,
           ticker: market.ticker,
           strikePriceMicros: market.strikePrice,
           tradingDay: market.tradingDay,
@@ -47,6 +48,10 @@ export function useMarketList(): UseMarketListResult {
           closeTimeTs: market.closeTimeTs,
           phase: market.phase,
           outcome: market.outcome,
+          phoenixMarket: market.phoenixMarket,
+          yesMint: market.yesMint,
+          noMint: market.noMint,
+          vault: market.vault,
           settledPrice: market.settledPrice > 0n ? market.settledPrice : null,
           settlementTs: market.settlementTs > 0 ? market.settlementTs : null,
           yesOpenInterest: market.yesOpenInterest,
