@@ -16,6 +16,11 @@ interface AppProvidersProps {
 
 export function AppProviders({ children }: AppProvidersProps) {
   const endpoint = useMemo(() => {
+    // Allow E2E tests to override the RPC URL via injected window variable
+    if (typeof window !== "undefined") {
+      const e2eUrl = (window as unknown as Record<string, string>).__E2E_RPC_URL;
+      if (e2eUrl) return e2eUrl;
+    }
     const env = readPublicMeridianEnv();
     return env.rpcUrl ?? clusterApiUrl("devnet");
   }, []);

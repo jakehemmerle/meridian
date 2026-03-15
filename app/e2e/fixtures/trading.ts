@@ -280,12 +280,13 @@ export const tradingTest = marketTest.extend<{ trading: TradingFixture }>({
     const orderSig = await connection.sendTransaction(orderTx, [marketMaker]);
     await connection.confirmTransaction(orderSig, "confirmed");
 
-    // Inject RPC URL into browser so the app connects to our test validator
+    // Inject RPC URL and USDC mint into browser so the app connects to our test validator
     await page.addInitScript(
-      ({ rpcUrl }) => {
+      ({ rpcUrl, usdcMintStr }) => {
         (window as Record<string, unknown>).__E2E_RPC_URL = rpcUrl;
+        (window as Record<string, unknown>).__E2E_USDC_MINT = usdcMintStr;
       },
-      { rpcUrl: validator.rpcUrl },
+      { rpcUrl: validator.rpcUrl, usdcMintStr: usdcMint.toBase58() },
     );
 
     await use({
