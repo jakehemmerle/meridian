@@ -1,8 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import type { MarketSummary } from "./model";
 import { MarketDiscoveryList } from "./view";
+
+vi.mock("next/link", () => ({
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
 
 const sampleMarkets: MarketSummary[] = [
   {
@@ -36,8 +42,8 @@ const sampleMarkets: MarketSummary[] = [
 describe("MarketDiscoveryList", () => {
   it("renders market cards with ticker and price", () => {
     render(<MarketDiscoveryList markets={sampleMarkets} loading={false} />);
-    expect(screen.getByText("BTC-50K")).toBeInTheDocument();
-    expect(screen.getByText("ETH-4K")).toBeInTheDocument();
+    expect(screen.getAllByText("BTC-50K").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("ETH-4K").length).toBeGreaterThan(0);
   });
 
   it("shows empty message when no markets", () => {
@@ -67,7 +73,7 @@ describe("MarketDiscoveryList", () => {
       },
     ];
     render(<MarketDiscoveryList markets={marketWithNullPrice} loading={false} />);
-    expect(screen.getByText("SOL-200")).toBeInTheDocument();
+    expect(screen.getAllByText("SOL-200").length).toBeGreaterThan(0);
     expect(screen.queryByText(/Yes:/)).not.toBeInTheDocument();
   });
 });

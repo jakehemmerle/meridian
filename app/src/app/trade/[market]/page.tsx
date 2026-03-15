@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -7,9 +8,12 @@ import { PublicKey } from "@solana/web3.js";
 
 import { TradingScreen } from "../../../features/trading/trading-screen";
 import { useTradeExecution, type MarketAccounts } from "../../../features/trading/use-trade-execution";
+import { useOrderBook } from "../../../features/trading/use-orderbook";
+import { useUserPosition } from "../../../features/trading/use-position";
 import { useMarketAccount } from "../../../lib/solana/use-market-account";
 import { useTokenBalances } from "../../../lib/solana/use-token-balance";
 import { readPublicMeridianEnv } from "../../../lib/env/public";
+import { PageShell } from "../../../components/page-shell";
 
 const MERIDIAN_TICKERS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"];
 
@@ -56,16 +60,28 @@ export default function TradePage() {
 
   const tradeExecution = useTradeExecution(marketAccounts);
 
+  // Wire orderbook via Phoenix WebSocket subscription
+  const phoenixMarketAddress = marketData
+    ? marketData.phoenixMarket.toBase58()
+    : null;
+  const { yesLadder, noLadder, status: bookStatus } = useOrderBook(phoenixMarketAddress);
+
+  // Wire user position from on-chain token balances
+  const { position, refresh: refreshPosition } = useUserPosition(params.market);
+
   const balances = useTokenBalances(
     usdcMint,
     marketData?.yesMint ?? null,
     marketData?.noMint ?? null,
   );
 
-  // Refresh balances after trade confirms
+  // Refresh balances and position after trade confirms
   useEffect(() => {
     if (tradeExecution.status === "confirmed") {
-      const timer = setTimeout(() => balances.refresh(), 1000);
+      const timer = setTimeout(() => {
+        balances.refresh();
+        refreshPosition();
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [tradeExecution.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -74,51 +90,94 @@ export default function TradePage() {
     ? MERIDIAN_TICKERS[marketData.ticker] ?? "UNKNOWN"
     : "...";
 
+  // Quantity input state (in base lots, 1 token = 1_000_000)
+  const [quantityTokens, setQuantityTokens] = useState(1);
+
   const handleIntent = (intent: Parameters<typeof tradeExecution.execute>[0]) => {
     if (!marketData) return;
-    // Default quantity: 1 token (1_000_000 base lots)
-    tradeExecution.execute(intent, 1_000_000n).catch(() => {
+    const quantityBaseLots = BigInt(quantityTokens) * 1_000_000n;
+    tradeExecution.execute(intent, quantityBaseLots).catch(() => {
       // Error handled by hook state
     });
   };
 
   return (
-    <div>
+    <PageShell
+      hero={
+        <header>
+          <h1>{ticker} Market</h1>
+        </header>
+      }
+    >
       {!connected && (
-        <button onClick={() => connect()}>Connect Wallet</button>
+        <section className="panel">
+          <p>Connect your wallet to trade.</p>
+          <button onClick={() => connect()}>Connect Wallet</button>
+        </section>
       )}
 
       {connected && publicKey && (
-        <span data-testid="wallet-address">
-          {publicKey.toBase58().slice(0, 4)}...{publicKey.toBase58().slice(-4)}
-        </span>
-      )}
+        <div>
+          <div className="balances">
+            <span data-testid="wallet-address">
+              {publicKey.toBase58().slice(0, 4)}...{publicKey.toBase58().slice(-4)}
+            </span>
+            <span data-testid="usdc-balance">USDC: {formatTokenAmount(balances.usdc)}</span>
+            <span data-testid="yes-balance">Yes: {formatTokenAmount(balances.yes)}</span>
+            <span data-testid="no-balance">No: {formatTokenAmount(balances.no)}</span>
+          </div>
 
-      <div>
-        <span data-testid="usdc-balance">{formatTokenAmount(balances.usdc)}</span>
-        <span data-testid="yes-balance">{formatTokenAmount(balances.yes)}</span>
-        <span data-testid="no-balance">{formatTokenAmount(balances.no)}</span>
-      </div>
+          {tradeExecution.status !== "idle" && (
+            <span data-testid="tx-status">{tradeExecution.status}</span>
+          )}
 
-      {tradeExecution.status !== "idle" && (
-        <span data-testid="tx-status">{tradeExecution.status}</span>
-      )}
+          {tradeExecution.error && (
+            <span data-testid="tx-error">{tradeExecution.error}</span>
+          )}
 
-      {tradeExecution.error && (
-        <span data-testid="tx-error">{tradeExecution.error}</span>
-      )}
+          {/* Quantity input */}
+          <div className="quantity-input">
+            <label htmlFor="trade-quantity">Quantity (tokens)</label>
+            <input
+              id="trade-quantity"
+              type="number"
+              min={1}
+              value={quantityTokens}
+              onChange={(e) => setQuantityTokens(Math.max(1, parseInt(e.target.value) || 1))}
+              data-testid="quantity-input"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                // Max based on USDC balance (each token costs up to $1)
+                const maxTokens = Math.floor(Number(balances.usdc) / 1_000_000);
+                if (maxTokens > 0) setQuantityTokens(maxTokens);
+              }}
+              data-testid="max-button"
+            >
+              Max
+            </button>
+          </div>
 
-      {marketData && (
-        <TradingScreen
-          ticker={ticker}
-          strikePriceMicros={Number(marketData.strikePrice)}
-          yesLadder={null}
-          noLadder={null}
-          marketCloseUtc={marketData.closeTimeTs}
-          position={null}
-          onIntent={handleIntent}
-        />
+          {marketData && (
+            <TradingScreen
+              ticker={ticker}
+              strikePriceMicros={Number(marketData.strikePrice)}
+              yesLadder={yesLadder}
+              noLadder={noLadder}
+              marketCloseUtc={marketData.closeTimeTs}
+              position={position}
+              onIntent={handleIntent}
+            />
+          )}
+
+          {!marketData && (
+            <section className="panel">
+              <p>Loading market data...</p>
+            </section>
+          )}
+        </div>
       )}
-    </div>
+    </PageShell>
   );
 }

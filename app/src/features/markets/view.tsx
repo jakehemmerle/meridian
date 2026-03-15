@@ -1,7 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { MERIDIAN_TICKERS } from "@meridian/domain";
 
 import type { MarketSummary } from "./model";
 import { formatMarketKey } from "./model";
@@ -38,24 +38,41 @@ export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListPro
     );
   }
 
+  // Group markets by ticker
+  const grouped = new Map<string, MarketSummary[]>();
+  for (const market of markets) {
+    const existing = grouped.get(market.ticker) ?? [];
+    existing.push(market);
+    grouped.set(market.ticker, existing);
+  }
+
   return (
     <section className="panel">
       <h2>Markets</h2>
-      <ul>
-        {markets.map((market) => (
-          <li key={formatMarketKey(market)} data-testid={`market-item-${market.ticker}`}>
-            <span>{market.ticker}</span>
-            <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
-            <span>{market.phase}</span>
-            {market.outcome !== "Unsettled" && (
-              <span>{market.outcome}</span>
-            )}
-            {market.yesPriceMicros !== null && (
-              <span>Yes: {formatMicros(market.yesPriceMicros)}</span>
-            )}
-          </li>
-        ))}
-      </ul>
+      {Array.from(grouped.entries()).map(([ticker, tickerMarkets]) => (
+        <div key={ticker}>
+          <h3>{ticker}</h3>
+          <ul>
+            {tickerMarkets.map((market) => (
+              <li key={formatMarketKey(market)} data-testid={`market-item-${market.ticker}`}>
+                <Link href={`/trade/${market.id}`}>
+                  <span>{market.ticker}</span>
+                  <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
+                  <span className={`phase-badge phase-${market.phase.toLowerCase()}`}>
+                    {market.phase}
+                  </span>
+                  {market.outcome !== "Unsettled" && (
+                    <span>{market.outcome}</span>
+                  )}
+                  {market.yesPriceMicros !== null && (
+                    <span>Yes: {formatMicros(market.yesPriceMicros)}</span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </section>
   );
 }
@@ -76,31 +93,15 @@ export function MarketsLandingPage() {
         </section>
       }
     >
-      <section className="grid">
-        <section className="panel">
-          <h2>MAG7 Tickers</h2>
-          <ul>
-            {MERIDIAN_TICKERS.map((ticker) => (
-              <li key={ticker}>
-                <span>{ticker}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </section>
-
       {!connected && (
         <section className="panel">
-          <p>Loading markets...</p>
           <button type="button" onClick={() => connect()}>
             Connect Wallet
           </button>
         </section>
       )}
 
-      {connected && (
-        <MarketDiscoveryList markets={markets} loading={loading} />
-      )}
+      <MarketDiscoveryList markets={markets} loading={loading} />
     </PageShell>
   );
 }
