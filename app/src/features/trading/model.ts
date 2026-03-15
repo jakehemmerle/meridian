@@ -1,4 +1,4 @@
-import { formatUsd } from "../../lib/format";
+import { formatUsd, PRICE_UNIT } from "../../lib/format";
 
 export type TradeIntent = "buy-yes" | "buy-no" | "sell-yes" | "sell-no";
 
@@ -55,8 +55,6 @@ export function getIntentInstructionPlan(intent: TradeIntent): InstructionStep[]
 }
 
 // --- Payoff computation ---
-
-const PRICE_UNIT = 1_000_000;
 
 export interface PayoffInfo {
   costMicros: number;
