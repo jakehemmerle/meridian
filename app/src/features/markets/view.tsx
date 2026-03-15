@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
-import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
+
 import type { MarketSummary } from "./model";
 import { formatMarketKey } from "./model";
-import { useMarketList } from "./use-market-list";
+import { useMarkets } from "./use-markets";
 import { formatMicros } from "../../lib/format";
 
 import { PageShell } from "../../components/page-shell";
@@ -14,19 +13,14 @@ import { WalletButton } from "../../components/wallet-button";
 interface MarketDiscoveryListProps {
   markets: MarketSummary[];
   loading: boolean;
+  onSelect?: (market: MarketSummary) => void;
 }
 
-export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListProps) {
-  const grouped = useMemo(() => {
-    const map = new Map<string, MarketSummary[]>();
-    for (const market of markets) {
-      const existing = map.get(market.ticker) ?? [];
-      existing.push(market);
-      map.set(market.ticker, existing);
-    }
-    return map;
-  }, [markets]);
-
+export function MarketDiscoveryList({
+  markets,
+  loading,
+  onSelect,
+}: MarketDiscoveryListProps) {
   if (loading) {
     return (
       <section className="panel">
@@ -48,40 +42,40 @@ export function MarketDiscoveryList({ markets, loading }: MarketDiscoveryListPro
   return (
     <section className="panel">
       <h2>Markets</h2>
-      {Array.from(grouped.entries()).map(([ticker, tickerMarkets]) => (
-        <div key={ticker}>
-          <h3>{ticker}</h3>
-          <ul>
-            {tickerMarkets.map((market) => {
-              const key = formatMarketKey(market);
-              return (
-                <li key={key} data-testid={`market-item-${key}`}>
-                  <Link href={`/trade/${market.id}`}>
-                    <span>{market.ticker}</span>
-                    <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
-                    <span className={`phase-badge phase-${market.phase.toLowerCase()}`}>
-                      {market.phase}
-                    </span>
-                    {market.outcome !== "Unsettled" && (
-                      <span>{market.outcome}</span>
-                    )}
-                    {market.yesPriceMicros !== null && (
-                      <span>Yes: {formatMicros(market.yesPriceMicros)}</span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+      <ul>
+        {markets.map((market) => (
+          <li
+            key={formatMarketKey(market)}
+            className={onSelect ? "market-row" : undefined}
+            onClick={() => onSelect?.(market)}
+            role={onSelect ? "button" : undefined}
+            tabIndex={onSelect ? 0 : undefined}
+            onKeyDown={(e) => {
+              if (onSelect && (e.key === "Enter" || e.key === " ")) {
+                e.preventDefault();
+                onSelect(market);
+              }
+            }}
+          >
+            <span>
+              <strong>{market.ticker}</strong>
+            </span>
+            <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
+            <span className="market-phase">{market.phase}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
 
-export function MarketsLandingPage() {
-  const { connected } = useWallet();
-  const { markets, loading } = useMarketList();
+interface MarketsLandingPageProps {
+  onSelectMarket?: (market: MarketSummary) => void;
+}
+
+export function MarketsLandingPage({ onSelectMarket }: MarketsLandingPageProps) {
+  const { connected, connect } = useWallet();
+  const { markets, loading, refresh } = useMarkets();
 
   return (
     <PageShell
@@ -90,18 +84,35 @@ export function MarketsLandingPage() {
           <p className="eyebrow">Meridian</p>
           <h1>Binary outcome markets on Solana.</h1>
           <p className="lede">
-            Will [STOCK] close above [STRIKE] today? Yes pays $1.00. No pays $0.00.
+            Will [STOCK] close above [STRIKE] today? Yes pays $1.00. No pays
+            $0.00.
           </p>
         </section>
       }
     >
       {!connected && (
         <section className="panel">
-          <WalletButton />
+          <p>Connect your wallet to discover markets.</p>
+          <button type="button" onClick={() => connect()}>
+            Connect Wallet
+          </button>
         </section>
       )}
 
-      <MarketDiscoveryList markets={markets} loading={loading} />
+      {connected && (
+        <>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+            <button type="button" onClick={refresh} disabled={loading}>
+              {loading ? "Loading..." : "Refresh"}
+            </button>
+          </div>
+          <MarketDiscoveryList
+            markets={markets}
+            loading={loading}
+            onSelect={onSelectMarket}
+          />
+        </>
+      )}
     </PageShell>
   );
 }

@@ -5,3 +5,6 @@ export * from "./use-orderbook";
 export * from "./use-position";
 export * from "./phoenix-subscription";
 export * from "./trading-screen";
+export * from "./use-trade";
+export * from "./use-balances";
+export * from "./market-trading-page";

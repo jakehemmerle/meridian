@@ -35,6 +35,7 @@ const mockConnection = {
 vi.mock("@solana/wallet-adapter-react", () => ({
   useWallet: () => mockWallet,
   useConnection: () => ({ connection: mockConnection }),
+  useAnchorWallet: () => undefined,
 }));
 
 describe("MarketsLandingPage", () => {
@@ -49,10 +50,9 @@ describe("MarketsLandingPage", () => {
     expect(screen.getByText(/binary outcome/i)).toBeInTheDocument();
   });
 
-  it("renders markets list with loading state initially", () => {
+  it("renders a connect-wallet prompt when disconnected", () => {
     render(<MarketsLandingPage />);
-    // Markets are shown even before wallet connection (public data)
-    expect(screen.getByText(/loading markets/i)).toBeInTheDocument();
+    expect(screen.getByText(/connect your wallet/i)).toBeInTheDocument();
   });
 
   it("renders a connect-wallet button when disconnected", () => {
@@ -78,9 +78,10 @@ describe("MarketsLandingPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders market list even when disconnected", () => {
+  it("renders empty market list when connected with no program", () => {
+    mockWallet.connected = true;
+    mockWallet.publicKey = { toBase58: () => "ABC123" } as any;
     render(<MarketsLandingPage />);
-    // Markets loading state shows because getProgramAccounts returns []
-    expect(screen.getByText(/loading markets/i)).toBeInTheDocument();
+    expect(screen.getByText(/no markets available/i)).toBeInTheDocument();
   });
 });

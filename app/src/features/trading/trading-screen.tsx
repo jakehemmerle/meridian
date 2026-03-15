@@ -1,5 +1,7 @@
+"use client";
+
 import { useState } from "react";
-import type { OrderBookLadder, OrderBookLevel } from "@meridian/domain";
+import type { OrderBookLadder } from "@meridian/domain";
 import {
   type TradeIntent,
   type UserPosition,
@@ -18,6 +20,23 @@ interface TradingScreenProps {
   marketCloseUtc: number;
   position: UserPosition | null;
   onIntent: (intent: TradeIntent) => void;
+  // Wired-up mode props
+  onExecute?: (intent: TradeIntent, quantity: number) => Promise<void>;
+  usdcBalance?: bigint | null;
+  executing?: boolean;
+  lastError?: string | null;
+  phase?: "trading" | "closed" | "settled";
+  outcome?: "unsettled" | "yes" | "no";
+  onRedeem?: (quantity: number) => Promise<void>;
+  onBack?: () => void;
+}
+
+function formatPrice(micros: number): string {
+  return `$${(micros / 1_000_000).toFixed(2)}`;
+}
+
+function formatTokens(raw: bigint): string {
+  return (Number(raw) / 1_000_000).toFixed(2);
 }
 
 function formatCountdown(totalSeconds: number): string {
@@ -39,7 +58,7 @@ function LadderView({
   return (
     <div className="ladder">
       <h3>{label}</h3>
-      <table>
+      <table className="ob-table">
         <thead>
           <tr>
             <th>Bid</th>
@@ -50,9 +69,9 @@ function LadderView({
         <tbody>
           {mergeLevels(ladder).map((row, i) => (
             <tr key={i}>
-              <td>{row.bidSize ?? ""}</td>
-              <td>{formatUsd(row.price)}</td>
-              <td>{row.askSize ?? ""}</td>
+              <td className="bid-cell">{row.bidSize ?? ""}</td>
+              <td className="price-cell">{formatPrice(row.price)}</td>
+              <td className="ask-cell">{row.askSize ?? ""}</td>
             </tr>
           ))}
         </tbody>
@@ -107,26 +126,42 @@ export function TradingScreen({
   marketCloseUtc,
   position,
   onIntent,
+  onExecute,
+  usdcBalance,
+  executing,
+  lastError,
+  phase,
+  outcome,
+  onRedeem,
+  onBack,
 }: TradingScreenProps) {
   const [selectedIntent, setSelectedIntent] = useState<TradeIntent>("buy-yes");
+  const [quantity, setQuantity] = useState(1);
   const constraints = getPositionConstraints(position);
   const nowUtc = Math.floor(Date.now() / 1000);
   const countdown = getCountdownSeconds(marketCloseUtc, nowUtc);
   const isClosed = countdown <= 0;
+  const isSettled = phase === "settled";
 
-  const bestPrice = getBestPriceForIntent(
-    selectedIntent,
-    yesLadder,
-    noLadder,
-  );
-  const payoff = bestPrice != null ? computePayoff(selectedIntent, bestPrice) : null;
+  const bestPrice = getBestPriceForIntent(selectedIntent, yesLadder, noLadder);
+  const payoff =
+    bestPrice != null ? computePayoff(selectedIntent, bestPrice) : null;
 
-  function handleIntentClick(intent: TradeIntent) {
+  async function handleIntentClick(intent: TradeIntent) {
     setSelectedIntent(intent);
-    onIntent(intent);
+    if (onExecute) {
+      try {
+        await onExecute(intent, quantity);
+      } catch {
+        // Error handled by parent via lastError prop
+      }
+    } else {
+      onIntent(intent);
+    }
   }
 
   function isIntentDisabled(intent: TradeIntent): boolean {
+    if (executing) return true;
     if (intent === "buy-yes") return !constraints.canBuyYes;
     if (intent === "buy-no") return !constraints.canBuyNo;
     if (intent === "sell-yes") return !constraints.canSellYes;
@@ -134,14 +169,31 @@ export function TradingScreen({
     return false;
   }
 
+  const hasWinningTokens =
+    isSettled &&
+    position &&
+    ((outcome === "yes" && position.yesQuantity > 0n) ||
+      (outcome === "no" && position.noQuantity > 0n));
+
   return (
     <section className="trading-screen">
-      <header>
+      <header className="trading-header">
+        {onBack && (
+          <button type="button" className="back-btn" onClick={onBack}>
+            &larr; Markets
+          </button>
+        )}
         <h2>
-          {ticker} — Strike {formatUsd(strikePriceMicros)}
+          {ticker} &mdash; Strike {formatPrice(strikePriceMicros)}
         </h2>
-        {isClosed ? (
-          <span data-testid="countdown-timer">Market Closed</span>
+        {isSettled ? (
+          <span data-testid="countdown-timer" className="phase-badge settled">
+            Settled: {outcome === "yes" ? "YES" : "NO"}
+          </span>
+        ) : isClosed ? (
+          <span data-testid="countdown-timer" className="phase-badge closed">
+            Market Closed
+          </span>
         ) : (
           <span data-testid="countdown-timer">
             Closes in {formatCountdown(countdown)}
@@ -149,42 +201,104 @@ export function TradingScreen({
         )}
       </header>
 
+      {/* Balances */}
+      {(position || usdcBalance != null) && (
+        <div className="balances-bar">
+          {usdcBalance != null && (
+            <span>USDC: {formatTokens(usdcBalance)}</span>
+          )}
+          {position && <span>Yes: {formatTokens(position.yesQuantity)}</span>}
+          {position && <span>No: {formatTokens(position.noQuantity)}</span>}
+        </div>
+      )}
+
+      {/* Order Book */}
       <div className="order-book">
         <LadderView label="Yes" ladder={yesLadder} />
         <LadderView label="No" ladder={noLadder} />
       </div>
 
-      <div className="intent-buttons">
-        {tradingIntentDescriptors.map((desc) => (
-          <button
-            key={desc.intent}
-            onClick={() => handleIntentClick(desc.intent)}
-            disabled={isIntentDisabled(desc.intent)}
-            aria-pressed={selectedIntent === desc.intent}
-          >
-            {desc.label}
-          </button>
-        ))}
-      </div>
+      {/* Quantity + Intent Buttons */}
+      {!isSettled && (
+        <>
+          {onExecute && (
+            <div className="quantity-row">
+              <label htmlFor="qty-input">Quantity (tokens):</label>
+              <input
+                id="qty-input"
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) =>
+                  setQuantity(Math.max(1, parseInt(e.target.value) || 1))
+                }
+                disabled={executing}
+              />
+            </div>
+          )}
+          <div className="intent-buttons">
+            {tradingIntentDescriptors.map((desc) => (
+              <button
+                key={desc.intent}
+                className={`intent-btn intent-${desc.intent}`}
+                onClick={() => handleIntentClick(desc.intent)}
+                disabled={isIntentDisabled(desc.intent)}
+                aria-pressed={selectedIntent === desc.intent}
+              >
+                {executing && selectedIntent === desc.intent
+                  ? "Sending..."
+                  : desc.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
-      {!constraints.canBuyYes && (
+      {/* Redeem section for settled markets */}
+      {hasWinningTokens && onRedeem && (
+        <div className="redeem-section">
+          <p>
+            Market settled <strong>{outcome?.toUpperCase()}</strong>. You have
+            winning tokens to redeem.
+          </p>
+          <button
+            type="button"
+            className="intent-btn redeem-btn"
+            onClick={() => {
+              const redeemQty =
+                outcome === "yes"
+                  ? Number(position!.yesQuantity) / 1_000_000
+                  : Number(position!.noQuantity) / 1_000_000;
+              onRedeem(Math.floor(redeemQty));
+            }}
+            disabled={executing}
+          >
+            {executing ? "Redeeming..." : "Redeem Winnings"}
+          </button>
+        </div>
+      )}
+
+      {/* Guidance */}
+      {!constraints.canBuyYes && constraints.buyYesGuidance && (
         <p className="guidance">{constraints.buyYesGuidance}</p>
       )}
-      {!constraints.canBuyNo && (
+      {!constraints.canBuyNo && constraints.buyNoGuidance && (
         <p className="guidance">{constraints.buyNoGuidance}</p>
       )}
-      {!constraints.canSellYes && (
+      {!constraints.canSellYes && constraints.sellYesGuidance && (
         <p className="guidance">{constraints.sellYesGuidance}</p>
       )}
-      {!constraints.canSellNo && (
+      {!constraints.canSellNo && constraints.sellNoGuidance && (
         <p className="guidance">{constraints.sellNoGuidance}</p>
       )}
 
-      {payoff && (
+      {payoff && !isSettled && (
         <p className="payoff">
           {payoff.formatDisplay(ticker, strikePriceMicros)}
         </p>
       )}
+
+      {lastError && <p className="trade-error">{lastError}</p>}
     </section>
   );
 }
