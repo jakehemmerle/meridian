@@ -65,7 +65,18 @@ export function useMarkets() {
         settlementTs: acc.account.settlementTs?.toNumber?.() ?? (acc.account.settlementTs ? Number(acc.account.settlementTs) : null),
         yesOpenInterest: BigInt(acc.account.yesOpenInterest?.toString() ?? "0"),
       }));
-      setMarkets(results);
+
+      const tradeableMarkets = results
+        .filter((market) => market.phase === "Trading" && market.yesOpenInterest > 0n)
+        .sort((a, b) => {
+          if (a.tradingDay !== b.tradingDay) return b.tradingDay - a.tradingDay;
+          if (a.strikePriceMicros !== b.strikePriceMicros) {
+            return a.strikePriceMicros < b.strikePriceMicros ? -1 : 1;
+          }
+          return a.id.localeCompare(b.id);
+        });
+
+      setMarkets(tradeableMarkets);
     } catch (err) {
       console.error("Failed to discover markets:", err);
     } finally {

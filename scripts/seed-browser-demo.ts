@@ -73,11 +73,12 @@ const AAPL_FEED_ID = new Uint8Array([
   109, 3, 87, 233, 27, 83, 17, 177, 117, 8, 74, 90, 213, 86, 136,
 ]);
 
-const RESTING_ORDER_SIZE = 8; // 8 pairs worth of resting orders each side
-const MINT_PAIRS = 20; // ideal pairs for order book liquidity
-const MIN_USDC_FOR_SEED = 5; // bare minimum USDC to run the seed
 const DEMO_TRADER_USDC = 10; // lets the browser wallet walk through all trade intents
 const DEMO_MARKET_MAKER_KEYPAIR_PATH = "keys/demo-wallet-2.json";
+const MM_BOOK_LEVELS = 3;
+const MM_TARGET_LEVEL_SIZE = 2; // enough depth for a small live demo without draining devnet USDC
+const MM_BID_PRICES = [45n, 48n, 50n] as const;
+const MM_ASK_PRICES = [52n, 55n, 58n] as const;
 
 // ─── CLI Flags ────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,45 @@ function fail(label: string, expected: string, actual: string): never {
   console.error(`    Expected: ${expected}`);
   console.error(`    Actual:   ${actual}`);
   process.exit(1);
+}
+
+function buildLiquidityPlan(
+  traderUsdcBalance: bigint,
+  traderReserveUsdc: bigint,
+  mmUsdcBalance: bigint,
+): {
+  actualMintPairs: number;
+  perLevel: number;
+  bidLevels: { price: bigint; size: bigint }[];
+  askLevels: { price: bigint; size: bigint }[];
+  mmTargetUsdc: bigint;
+} {
+  const spendableTraderUsdc =
+    traderUsdcBalance > traderReserveUsdc ? traderUsdcBalance - traderReserveUsdc : 0n;
+  const totalMmBudgetUnits = Number((mmUsdcBalance + spendableTraderUsdc) / BigInt(ONE_USDC));
+  const maxPerLevel = Math.floor(totalMmBudgetUnits / (MM_BOOK_LEVELS * 2));
+  const perLevel = Math.min(MM_TARGET_LEVEL_SIZE, maxPerLevel);
+
+  if (perLevel < 1) {
+    fail(
+      "Demo funding",
+      `at least ${formatUsdc(BigInt((DEMO_TRADER_USDC + MM_BOOK_LEVELS * 2) * ONE_USDC))} total to preserve trader reserve and quote both sides`,
+      `${formatUsdc(traderUsdcBalance + mmUsdcBalance)} available`,
+    );
+  }
+
+  const actualMintPairs = MM_BOOK_LEVELS * perLevel;
+  const bidLevels = MM_BID_PRICES.map((price) => ({ price, size: BigInt(perLevel) }));
+  const askLevels = MM_ASK_PRICES.map((price) => ({ price, size: BigInt(perLevel) }));
+  const mmTargetUsdc = BigInt(actualMintPairs + MM_BOOK_LEVELS * perLevel) * BigInt(ONE_USDC);
+
+  return {
+    actualMintPairs,
+    perLevel,
+    bidLevels,
+    askLevels,
+    mmTargetUsdc,
+  };
 }
 
 // ─── Phoenix Order Helpers ────────────────────────────────────────────────────
@@ -628,14 +668,48 @@ async function runSeed() {
   result("Trader target", formatUsdc(traderTargetUsdc));
 
   if (traderUsdcBalance < traderTargetUsdc) {
+    const deficit = traderTargetUsdc - traderUsdcBalance;
     try {
-      const deficit = traderTargetUsdc - traderUsdcBalance;
       await mintTo(connection, payer, usdcMint, payerUsdcAta, payer.publicKey, deficit);
       traderUsdcBalance = (await getAccount(connection, payerUsdcAta)).amount;
       result("Minted trader USDC", formatUsdc(deficit));
     } catch {
-      result("Trader mint", "payer is not USDC mint authority — using existing balance");
+      let mmUsdcBalance: bigint;
+      try {
+        mmUsdcBalance = (await getAccount(connection, mmUsdcAta)).amount;
+      } catch {
+        mmUsdcBalance = 0n;
+      }
+
+      if (mmUsdcBalance >= deficit) {
+        const transferIx = createTransferInstruction(
+          mmUsdcAta,
+          payerUsdcAta,
+          marketMaker.publicKey,
+          deficit,
+        );
+        const transferSig = await connection.sendTransaction(
+          new Transaction().add(transferIx),
+          [marketMaker],
+        );
+        await connection.confirmTransaction(transferSig, "confirmed");
+        traderUsdcBalance = (await getAccount(connection, payerUsdcAta)).amount;
+        result("Transferred trader USDC", formatUsdc(deficit));
+      } else {
+        result(
+          "Trader funding",
+          "payer is not USDC mint authority and MM does not hold enough USDC to top up the browser wallet",
+        );
+      }
     }
+  }
+
+  if (traderUsdcBalance < traderTargetUsdc) {
+    fail(
+      "Trader funding",
+      `${formatUsdc(traderTargetUsdc)} in the browser wallet`,
+      `${formatUsdc(traderUsdcBalance)} after mint/transfer attempts`,
+    );
   }
   result("Trader funded", formatUsdc(traderUsdcBalance));
 
@@ -824,21 +898,6 @@ async function runSeed() {
   const [phoenixBaseVault] = derivePhoenixVault(phoenixMarketAddr!, yesMintPda);
   const [phoenixQuoteVault] = derivePhoenixVault(phoenixMarketAddr!, usdcMint);
 
-  const actualMintPairs = MINT_PAIRS;
-  const orderPairs = Math.min(RESTING_ORDER_SIZE, Math.floor(actualMintPairs * 0.4));
-  const perLevel = Math.max(1, Math.floor(orderPairs / 3));
-  const bidLevels = [
-    { price: 45n, size: BigInt(perLevel) },
-    { price: 48n, size: BigInt(perLevel) },
-    { price: 50n, size: BigInt(perLevel) },
-  ];
-  const askLevels = [
-    { price: 52n, size: BigInt(perLevel) },
-    { price: 55n, size: BigInt(perLevel) },
-    { price: 58n, size: BigInt(perLevel) },
-  ];
-  const totalBidUsdc = bidLevels.reduce((sum, l) => sum + Number(l.size), 0);
-  const mmTargetUsdc = BigInt((actualMintPairs + totalBidUsdc) * ONE_USDC);
   let mmUsdcBalance: bigint;
   try {
     mmUsdcBalance = (await getAccount(connection, mmUsdcAta)).amount;
@@ -846,9 +905,18 @@ async function runSeed() {
     mmUsdcBalance = 0n;
   }
 
+  const {
+    actualMintPairs,
+    perLevel,
+    bidLevels,
+    askLevels,
+    mmTargetUsdc,
+  } = buildLiquidityPlan(traderUsdcBalance, traderTargetUsdc, mmUsdcBalance);
+
   step(10, `Fund MM and mint ${actualMintPairs} Yes/No pairs for liquidity`);
   result("MM current USDC", formatUsdc(mmUsdcBalance));
   result("MM target USDC", formatUsdc(mmTargetUsdc));
+  result("Book depth", `${perLevel} token(s) at each of ${MM_BOOK_LEVELS} bid/ask levels`);
 
   if (mmUsdcBalance < mmTargetUsdc) {
     const deficit = mmTargetUsdc - mmUsdcBalance;
@@ -863,8 +931,14 @@ async function runSeed() {
     }
     if (!funded) {
       const traderUsdc = (await getAccount(connection, payerUsdcAta)).amount;
-      if (traderUsdc < deficit) {
-        fail("MM funding", `${formatUsdc(mmTargetUsdc)}`, `${formatUsdc(mmUsdcBalance)} available`);
+      const spendableTraderUsdc =
+        traderUsdc > traderTargetUsdc ? traderUsdc - traderTargetUsdc : 0n;
+      if (spendableTraderUsdc < deficit) {
+        fail(
+          "MM funding",
+          `${formatUsdc(deficit)} available above the trader reserve`,
+          `${formatUsdc(spendableTraderUsdc)} spendable while preserving ${formatUsdc(traderTargetUsdc)} for the browser wallet`,
+        );
       }
       const transferIx = createTransferInstruction(
         payerUsdcAta,
@@ -878,6 +952,7 @@ async function runSeed() {
       );
       await connection.confirmTransaction(transferSig, "confirmed");
       result("Transferred MM USDC", formatUsdc(deficit));
+      traderUsdcBalance = (await getAccount(connection, payerUsdcAta)).amount;
     }
     mmUsdcBalance = (await getAccount(connection, mmUsdcAta)).amount;
   }

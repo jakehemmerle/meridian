@@ -61,6 +61,7 @@ export function MarketDiscoveryList({
               <strong>{market.ticker}</strong>
             </span>
             <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
+            <span>Day: {market.tradingDay}</span>
             <span className="market-phase">{market.phase}</span>
           </li>
         ))}
