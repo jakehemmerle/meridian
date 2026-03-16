@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { HistoryEvent, TradeEvent, RedeemEvent } from "./model";
-import { formatMicros } from "../../lib/format";
+import { formatMicros, formatTokenAmount } from "../../lib/format";
 
 const SIDE_LABELS: Record<TradeEvent["side"], string> = {
   "buy-yes": "Buy Yes",
@@ -18,7 +18,7 @@ function TradeRow({ event }: { event: TradeEvent }) {
     <li>
       <span>{event.ticker}</span>
       <span>{formatSide(event.side)}</span>
-      <span>{event.quantity}</span>
+      <span>{formatTokenAmount(BigInt(event.quantity) * 1_000_000n)}</span>
       <span>{formatMicros(event.priceMicros)}</span>
     </li>
   );

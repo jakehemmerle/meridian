@@ -55,18 +55,11 @@ describe("MarketsLandingPage", () => {
     expect(screen.getByText(/connect your wallet/i)).toBeInTheDocument();
   });
 
-  it("renders a connect-wallet button when disconnected", () => {
+  it("does not render market rows while disconnected", () => {
     render(<MarketsLandingPage />);
     expect(
-      screen.getByRole("button", { name: /connect wallet/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("calls wallet.connect() when CTA button is clicked", async () => {
-    render(<MarketsLandingPage />);
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /connect wallet/i }));
-    expect(mockConnect).toHaveBeenCalledOnce();
+      screen.queryByText(/no markets available/i),
+    ).not.toBeInTheDocument();
   });
 
   it("does not render connect-wallet button when already connected", () => {

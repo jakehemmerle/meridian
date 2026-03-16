@@ -39,6 +39,7 @@ type AccountChangeCallback = (
 function createMockConnection() {
   let nextSubId = 1;
   const listeners = new Map<number, AccountChangeCallback>();
+  let latestAccountInfo: AccountInfo<Buffer> | null = null;
 
   const connection = {
     onAccountChange: vi.fn(
@@ -48,6 +49,7 @@ function createMockConnection() {
         return id;
       },
     ),
+    getAccountInfo: vi.fn(async () => latestAccountInfo),
     removeAccountChangeListener: vi.fn((id: number) => {
       listeners.delete(id);
     }),
@@ -70,11 +72,26 @@ function createMockConnection() {
     );
   }
 
+  function setAccountInfo(data: Buffer) {
+    latestAccountInfo = {
+      data,
+      executable: false,
+      lamports: 0,
+      owner: {} as never,
+      rentEpoch: 0,
+    } as AccountInfo<Buffer>;
+  }
+
   function hasActiveListeners(): boolean {
     return listeners.size > 0;
   }
 
-  return { connection: connection as unknown as Connection, emitAccountChange, hasActiveListeners };
+  return {
+    connection: connection as unknown as Connection,
+    emitAccountChange,
+    hasActiveListeners,
+    setAccountInfo,
+  };
 }
 
 const VALID_MARKET_ADDRESS = "11111111111111111111111111111111";
@@ -116,6 +133,26 @@ describe("createPhoenixSubscription", () => {
     expect(deserialize).toHaveBeenCalledTimes(1);
     expect(onUpdate).toHaveBeenCalledTimes(1);
     expect(onUpdate.mock.calls[0][0].bids[0].priceInTicks).toBe(700);
+    expect(onStatusChange).toHaveBeenCalledWith("connected");
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("loads the current market snapshot immediately after subscribing", async () => {
+    const onUpdate = vi.fn();
+    const onError = vi.fn();
+    const onStatusChange = vi.fn();
+    mock.setAccountInfo(Buffer.alloc(32));
+
+    createPhoenixSubscription(mock.connection, VALID_MARKET_ADDRESS, deserialize, {
+      onUpdate,
+      onError,
+      onStatusChange,
+    });
+
+    await Promise.resolve();
+
+    expect(mock.connection.getAccountInfo).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenCalledTimes(1);
     expect(onStatusChange).toHaveBeenCalledWith("connected");
     expect(onError).not.toHaveBeenCalled();
   });

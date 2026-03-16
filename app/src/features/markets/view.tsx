@@ -85,8 +85,9 @@ export function MarketsLandingPage({ onSelectMarket }: MarketsLandingPageProps) 
           <p className="eyebrow">Meridian</p>
           <h1>Binary outcome markets on Solana.</h1>
           <p className="lede">
-            Will [STOCK] close above [STRIKE] today? Yes pays $1.00. No pays
-            $0.00.
+            Trade a live binary market on whether a stock will finish above its
+            strike at the close. Yes settles to $1.00 if it clears the strike;
+            No settles to $1.00 if it does not.
           </p>
         </section>
       }
@@ -100,8 +101,13 @@ export function MarketsLandingPage({ onSelectMarket }: MarketsLandingPageProps) 
 
       {connected && (
         <>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-            <button type="button" onClick={refresh} disabled={loading}>
+          <div className="panelActionRow">
+            <button
+              type="button"
+              className="panelActionButton"
+              onClick={refresh}
+              disabled={loading}
+            >
               {loading ? "Loading..." : "Refresh"}
             </button>
           </div>

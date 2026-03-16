@@ -33,21 +33,37 @@ export function createPhoenixSubscription(
 
   const pubkey = new PublicKey(marketAddress);
 
+  function deliverAccountData(accountInfo: AccountInfo<Buffer>) {
+    try {
+      const book = deserialize(accountInfo.data);
+      callbacks.onStatusChange("connected");
+      callbacks.onUpdate(book);
+    } catch (err) {
+      callbacks.onError(err instanceof Error ? err : new Error(String(err)));
+      callbacks.onStatusChange("disconnected");
+    }
+  }
+
   const subId = connection.onAccountChange(
     pubkey,
     (accountInfo: AccountInfo<Buffer>) => {
       if (!active) return;
-      try {
-        const book = deserialize(accountInfo.data);
-        callbacks.onStatusChange("connected");
-        callbacks.onUpdate(book);
-      } catch (err) {
-        callbacks.onError(err instanceof Error ? err : new Error(String(err)));
-        callbacks.onStatusChange("disconnected");
-      }
+      deliverAccountData(accountInfo);
     },
     commitment,
   );
+
+  void connection
+    .getAccountInfo(pubkey, commitment)
+    .then((accountInfo) => {
+      if (!active || !accountInfo) return;
+      deliverAccountData(accountInfo as AccountInfo<Buffer>);
+    })
+    .catch((err) => {
+      if (!active) return;
+      callbacks.onError(err instanceof Error ? err : new Error(String(err)));
+      callbacks.onStatusChange("disconnected");
+    });
 
   return {
     unsubscribe: () => {

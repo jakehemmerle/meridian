@@ -14,9 +14,10 @@ export function formatUsd(micros: number): string {
   return `$${microsToFixed(micros)}`;
 }
 
-/** Format micros (number) as signed "+$X.XX" or "-$X.XX" */
-export function formatUsdSigned(micros: number): string {
-  const formatted = `$${microsToFixed(Math.abs(micros))}`;
+/** Format micros (number | bigint) as signed "+$X.XX" or "-$X.XX" */
+export function formatUsdSigned(micros: number | bigint): string {
+  const absolute = micros < 0 ? -micros : micros;
+  const formatted = `$${microsToFixed(absolute)}`;
   if (micros < 0) return `-${formatted}`;
   return `+${formatted}`;
 }

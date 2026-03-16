@@ -1,11 +1,16 @@
 import type { PortfolioPosition } from "./model";
 import type { MarketPhase, MarketOutcome } from "../markets/model";
-import { formatUsdSigned, formatUsdBigint, PRICE_UNIT } from "../../lib/format";
+import {
+  formatTokenAmount,
+  formatUsdSigned,
+  formatUsdBigint,
+  PRICE_UNIT,
+} from "../../lib/format";
 
 function computePnl(position: PortfolioPosition): string {
   if (position.markPriceMicros === null) return "--";
-  const diff = Number(position.markPriceMicros - position.averageEntryPriceMicros);
-  const pnl = diff * Number(position.quantity);
+  const diff = position.markPriceMicros - position.averageEntryPriceMicros;
+  const pnl = (diff * position.quantity) / BigInt(PRICE_UNIT);
   return formatUsdSigned(pnl);
 }
 
@@ -33,7 +38,7 @@ export function PortfolioPositionList({ positions }: PortfolioPositionListProps)
           <li key={`${pos.marketId}-${pos.side}`} data-testid={`portfolio-item-${pos.ticker}`}>
             <span>{pos.ticker}</span>
             <span>{pos.side === "yes" ? "Yes" : "No"}</span>
-            <span>{pos.quantity.toString()}</span>
+            <span>{formatTokenAmount(pos.quantity)}</span>
             <span data-testid="pnl">{computePnl(pos)}</span>
           </li>
         ))}
@@ -77,7 +82,8 @@ export function RedeemPanel({
     );
   }
 
-  const payoutDisplay = formatUsdBigint(quantity * BigInt(PRICE_UNIT));
+  const payoutDisplay = formatUsdBigint(quantity);
+  const redeemablePairs = quantity / BigInt(PRICE_UNIT);
 
   return (
     <section className="panel">
@@ -85,7 +91,7 @@ export function RedeemPanel({
       <button
         type="button"
         disabled={pending}
-        onClick={() => onRedeem(quantity)}
+        onClick={() => onRedeem(redeemablePairs)}
       >
         Redeem
       </button>

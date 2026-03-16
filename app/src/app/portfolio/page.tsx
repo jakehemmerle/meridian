@@ -16,10 +16,16 @@ export default function PortfolioPage() {
   const { connected } = useWallet();
   const { positions, loading } = usePortfolioPositions();
   const { markets } = useMarketList();
+  const hero = (
+    <section className="pageHero">
+      <h1>Portfolio</h1>
+      <p>Open Yes and No positions, plus any redeemable settled claims tied to this wallet.</p>
+    </section>
+  );
 
   if (!connected) {
     return (
-      <PageShell hero={<h1>Portfolio</h1>}>
+      <PageShell hero={hero}>
         <section className="panel">
           <p>Connect your wallet to view positions.</p>
           <WalletButton />
@@ -30,7 +36,7 @@ export default function PortfolioPage() {
 
   if (loading) {
     return (
-      <PageShell hero={<h1>Portfolio</h1>}>
+      <PageShell hero={hero}>
         <section className="panel">
           <p>Loading positions...</p>
         </section>
@@ -45,7 +51,7 @@ export default function PortfolioPage() {
   );
 
   return (
-    <PageShell hero={<h1>Portfolio</h1>}>
+    <PageShell hero={hero}>
       <PortfolioPositionList positions={positions} />
 
       {settledPositions.length > 0 && (

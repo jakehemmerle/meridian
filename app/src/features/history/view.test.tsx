@@ -24,7 +24,7 @@ describe("HistoryList", () => {
     render(<HistoryList events={events} />);
     expect(screen.getByText("AAPL")).toBeInTheDocument();
     expect(screen.getByText(/Buy Yes/i)).toBeInTheDocument();
-    expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getByText("10.00")).toBeInTheDocument();
     expect(screen.getByText("$0.62")).toBeInTheDocument();
   });
 
