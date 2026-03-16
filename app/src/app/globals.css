@@ -187,6 +187,12 @@ h1 {
   text-transform: uppercase;
 }
 
+.heroMetric strong {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -297,42 +303,101 @@ code {
 /* ── Trading Screen ──────────────────────────────────────────────────── */
 
 .trading-screen {
-  max-width: 1100px;
+  display: grid;
+  gap: 24px;
   margin: 0 auto;
 }
 
-.trading-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
+.trade-hero {
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.9), rgba(244, 239, 228, 0.76));
+  box-shadow: var(--shadow);
 }
 
-.trading-header h2 {
+.trade-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.trade-kicker {
+  margin-bottom: 10px;
+  color: var(--ember);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.trade-question {
   margin: 0;
-  flex: 1;
+  max-width: 14ch;
+  font-size: clamp(2.8rem, 6vw, 4.8rem);
+  line-height: 0.94;
+}
+
+.trade-summary {
+  max-width: 64ch;
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+
+.trade-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.trade-meta-card {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.trade-meta-card span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.trade-meta-card strong {
+  font-size: 1.05rem;
 }
 
 .back-btn {
-  padding: 6px 14px;
+  padding: 10px 16px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .back-btn:hover {
-  background: var(--sand);
+  background: rgba(47, 111, 106, 0.08);
 }
 
 .phase-badge {
-  padding: 4px 12px;
-  border-radius: 12px;
+  padding: 9px 14px;
+  border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .phase-badge.settled {
@@ -345,39 +410,328 @@ code {
   color: #fff;
 }
 
-/* ── Balances ─────────────────────────────────────────────────────────── */
-
-.balances-bar {
-  display: flex;
-  gap: 24px;
-  padding: 12px 18px;
-  margin-bottom: 16px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 0.9rem;
+.phase-badge.live {
+  background: rgba(47, 111, 106, 0.12);
+  color: var(--teal);
 }
 
-/* ── Order Book ──────────────────────────────────────────────────────── */
+.balance-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
 
+.balance-chip {
+  min-width: 120px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.balance-chip span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.balance-chip strong {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 1rem;
+}
+
+.trade-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.ticket-panel,
+.book-panel,
+.redeem-section {
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow);
+}
+
+.ticket-heading {
+  margin-bottom: 18px;
+}
+
+.ticket-heading h2 {
+  margin-bottom: 0;
+  font-size: 1rem;
+}
+
+.ticket-kicker {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ticket-toggle-group {
+  margin-bottom: 16px;
+}
+
+.ticket-label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.segment {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.segment:hover {
+  transform: translateY(-1px);
+}
+
+.segment.active {
+  background: rgba(19, 34, 48, 0.9);
+  color: #fff;
+}
+
+.segment.yes.active {
+  background: rgba(47, 111, 106, 0.92);
+}
+
+.segment.no.active {
+  background: rgba(182, 90, 49, 0.92);
+}
+
+.quote-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0 18px;
+}
+
+.quote-card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.quote-card span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.quote-card strong {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 1.02rem;
+}
+
+.quote-card.highlight {
+  background: rgba(47, 111, 106, 0.08);
+}
+
+.quantity-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.quantity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.quantity-row label {
+  font-size: 0.88rem;
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quantity-row input {
+  width: 92px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.quantity-shortcuts {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.shortcut {
+  min-width: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.shortcut.active {
+  background: rgba(19, 34, 48, 0.9);
+  color: #fff;
+}
+
+.trade-submit {
+  width: 100%;
+  padding: 15px 18px;
+  border: 0;
+  border-radius: 18px;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: transform 120ms ease, filter 120ms ease, opacity 120ms ease;
+}
+
+.trade-submit.buy.yes,
+.trade-submit.sell.no {
+  background: linear-gradient(135deg, #2f6f6a, #255750);
+}
+
+.trade-submit.buy.no,
+.trade-submit.sell.yes {
+  background: linear-gradient(135deg, #b65a31, #934724);
+}
+
+.trade-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+.trade-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.side-quote-row,
 .order-book {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
+.side-quote-card,
 .ladder {
   padding: 16px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--panel);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
 }
 
-.ladder h3 {
-  margin: 0 0 10px;
+.side-quote-card.active,
+.ladder.active {
+  border-color: rgba(47, 111, 106, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(47, 111, 106, 0.1);
+}
+
+.side-quote-head,
+.ladder-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.side-quote-head h3,
+.ladder-head h3 {
+  margin: 0;
   font-size: 1rem;
+}
+
+.side-quote-active {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(47, 111, 106, 0.12);
+  color: var(--teal);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.side-quote-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.side-quote-grid dt {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.side-quote-grid dd,
+.ladder-topline span {
+  margin: 0;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.95rem;
+}
+
+.ladder-topline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.ladder-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
 }
 
 .ob-table {
@@ -399,7 +753,7 @@ code {
 }
 
 .ob-table td {
-  padding: 3px 8px;
+  padding: 6px 8px;
   text-align: center;
 }
 
@@ -417,112 +771,28 @@ code {
   color: var(--ink);
 }
 
-/* ── Quantity Input ──────────────────────────────────────────────────── */
-
-.quantity-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.quantity-row label {
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-.quantity-row input {
-  width: 80px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 0.95rem;
-  text-align: center;
-}
-
-/* ── Intent Buttons ──────────────────────────────────────────────────── */
-
-.intent-buttons {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.intent-btn {
-  padding: 10px 8px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.intent-btn:hover:not(:disabled) {
-  filter: brightness(0.95);
-}
-
-.intent-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.intent-btn[aria-pressed="true"] {
-  outline: 2px solid var(--ink);
-  outline-offset: -2px;
-}
-
-.intent-buy-yes,
-.intent-buy-no {
-  background: var(--teal);
-  color: #fff;
-  border-color: var(--teal);
-}
-
-.intent-sell-yes,
-.intent-sell-no {
-  background: var(--ember);
-  color: #fff;
-  border-color: var(--ember);
-}
-
-/* ── Redeem ───────────────────────────────────────────────────────────── */
-
-.redeem-section {
-  padding: 16px 20px;
-  margin-bottom: 16px;
-  border: 2px solid var(--teal);
-  border-radius: 16px;
-  background: rgba(47, 111, 106, 0.08);
-}
-
-.redeem-btn {
-  background: var(--teal);
-  color: #fff;
-  border-color: var(--teal);
-}
-
 /* ── Guidance / Payoff / Error ────────────────────────────────────────── */
 
 .guidance {
+  margin-top: 14px;
   color: var(--muted);
-  font-size: 0.85rem;
-  font-style: italic;
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 
 .payoff {
+  margin-top: 16px;
   padding: 10px 16px;
-  border-radius: 12px;
+  border-radius: 16px;
   background: rgba(47, 111, 106, 0.06);
   font-size: 0.9rem;
+  line-height: 1.6;
 }
 
 .trade-error {
+  margin-top: 14px;
   padding: 10px 16px;
-  border-radius: 12px;
+  border-radius: 16px;
   background: rgba(182, 90, 49, 0.08);
   color: var(--ember);
   font-size: 0.9rem;
@@ -530,24 +800,81 @@ code {
 
 /* ── Market list rows ─────────────────────────────────────────────────── */
 
+.market-panel-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.market-card-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .market-row {
   cursor: pointer;
-  transition: background 0.12s;
+  transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 }
 
 .market-row:hover {
   background: rgba(47, 111, 106, 0.06);
-  border-radius: 8px;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(19, 34, 48, 0.08);
+}
+
+.market-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.64);
 }
 
 .market-phase {
-  padding: 2px 8px;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  background: rgba(19, 34, 48, 0.06);
+  background: rgba(47, 111, 106, 0.12);
+  color: var(--teal);
+}
+
+.market-card-head,
+.market-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.market-day,
+.market-card-meta span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.market-question {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+
+.market-card-cta {
+  color: var(--ember);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 button {
@@ -579,7 +906,12 @@ button {
 
   .grid,
   .envGrid,
-  .heroSummary {
+  .heroSummary,
+  .trade-meta-grid,
+  .market-card-list,
+  .quote-strip,
+  .side-quote-row,
+  .order-book {
     grid-template-columns: 1fr;
   }
 
@@ -587,11 +919,27 @@ button {
     flex-direction: column;
   }
 
-  .order-book {
+  .trade-hero,
+  .ticket-panel,
+  .book-panel,
+  .redeem-section {
+    padding: 24px;
+  }
+
+  .trade-layout {
     grid-template-columns: 1fr;
   }
 
-  .intent-buttons {
-    grid-template-columns: 1fr 1fr;
+  .trade-question {
+    max-width: none;
+  }
+
+  .quantity-block {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quantity-shortcuts {
+    margin-left: 0;
   }
 }

@@ -4,11 +4,27 @@ import { useWallet } from "@solana/wallet-adapter-react";
 
 import type { MarketSummary } from "./model";
 import { formatMarketKey } from "./model";
-import { useMarkets } from "./use-markets";
 import { formatMicros } from "../../lib/format";
 
 import { PageShell } from "../../components/page-shell";
 import { WalletButton } from "../../components/wallet-button";
+import { useMarketList } from "./use-market-list";
+
+function formatTradingDay(tradingDay: number): string {
+  const value = String(tradingDay);
+  if (value.length !== 8) return String(tradingDay);
+
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(4, 6)) - 1;
+  const day = Number(value.slice(6, 8));
+  const date = new Date(Date.UTC(year, month, day));
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 interface MarketDiscoveryListProps {
   markets: MarketSummary[];
@@ -40,13 +56,18 @@ export function MarketDiscoveryList({
   }
 
   return (
-    <section className="panel">
-      <h2>Markets</h2>
-      <ul>
+    <section className="panel market-panel">
+      <div className="market-panel-head">
+        <div>
+          <p className="eyebrow">Live Markets</p>
+          <h2>Pick A Contract</h2>
+        </div>
+      </div>
+      <ul className="market-card-list">
         {markets.map((market) => (
           <li
             key={formatMarketKey(market)}
-            className={onSelect ? "market-row" : undefined}
+            className={onSelect ? "market-row market-card" : "market-card"}
             onClick={() => onSelect?.(market)}
             role={onSelect ? "button" : undefined}
             tabIndex={onSelect ? 0 : undefined}
@@ -57,12 +78,20 @@ export function MarketDiscoveryList({
               }
             }}
           >
-            <span>
-              <strong>{market.ticker}</strong>
+            <div className="market-card-head">
+              <span className="market-phase">{market.phase}</span>
+              <span className="market-day">{formatTradingDay(market.tradingDay)}</span>
+            </div>
+            <p className="market-question">
+              Will {market.ticker} close above {formatMicros(market.strikePriceMicros)} today?
+            </p>
+            <div className="market-card-meta">
+              <span>Strike {formatMicros(market.strikePriceMicros)}</span>
+              <span>Closes 4:00 PM ET</span>
+            </div>
+            <span className="market-card-cta">
+              {onSelect ? "Open Market" : "Connect Wallet To Trade"}
             </span>
-            <span>Strike: {formatMicros(market.strikePriceMicros)}</span>
-            <span>Day: {market.tradingDay}</span>
-            <span className="market-phase">{market.phase}</span>
           </li>
         ))}
       </ul>
@@ -76,19 +105,47 @@ interface MarketsLandingPageProps {
 
 export function MarketsLandingPage({ onSelectMarket }: MarketsLandingPageProps) {
   const { connected } = useWallet();
-  const { markets, loading, refresh } = useMarkets();
+  const { markets, loading, refresh } = useMarketList();
+  const tradeableMarkets = markets
+    .filter((market) => market.phase === "Trading" && market.yesOpenInterest > 0n)
+    .sort((a, b) => {
+      if (a.tradingDay !== b.tradingDay) return b.tradingDay - a.tradingDay;
+      if (a.strikePriceMicros !== b.strikePriceMicros) {
+        return a.strikePriceMicros < b.strikePriceMicros ? -1 : 1;
+      }
+      return a.id.localeCompare(b.id);
+    });
+  const featuredMarket = tradeableMarkets[0] ?? null;
 
   return (
     <PageShell
       hero={
         <section className="hero">
           <p className="eyebrow">Meridian</p>
-          <h1>Binary outcome markets on Solana.</h1>
+          <h1>
+            {featuredMarket
+              ? `Will ${featuredMarket.ticker} close above ${formatMicros(featuredMarket.strikePriceMicros)} today?`
+              : "Binary outcome markets on Solana."}
+          </h1>
           <p className="lede">
-            Trade a live binary market on whether a stock will finish above its
-            strike at the close. Yes settles to $1.00 if it clears the strike;
-            No settles to $1.00 if it does not.
+            {featuredMarket
+              ? `Yes settles to $1.00 if ${featuredMarket.ticker} closes above the strike at the close. No settles to $1.00 if it does not.`
+              : "Trade a live binary market on whether a stock will finish above its strike at the close. Yes settles to $1.00 if it clears the strike; No settles to $1.00 if it does not."}
           </p>
+          <div className="heroSummary">
+            <div className="heroMetric">
+              <p>Settlement</p>
+              <strong>$1.00 binary payout</strong>
+            </div>
+            <div className="heroMetric">
+              <p>Venue</p>
+              <strong>Phoenix order book</strong>
+            </div>
+            <div className="heroMetric">
+              <p>Network</p>
+              <strong>Solana devnet</strong>
+            </div>
+          </div>
         </section>
       }
     >
@@ -108,11 +165,11 @@ export function MarketsLandingPage({ onSelectMarket }: MarketsLandingPageProps) 
               onClick={refresh}
               disabled={loading}
             >
-              {loading ? "Loading..." : "Refresh"}
+              {loading ? "Refreshing Markets..." : "Refresh Market List"}
             </button>
           </div>
           <MarketDiscoveryList
-            markets={markets}
+            markets={tradeableMarkets}
             loading={loading}
             onSelect={onSelectMarket}
           />

@@ -5,7 +5,6 @@ import type { OrderBookLadder } from "@meridian/domain";
 import {
   type TradeIntent,
   type UserPosition,
-  tradingIntentDescriptors,
   getPositionConstraints,
   computePayoff,
   getCountdownSeconds,
@@ -31,6 +30,9 @@ interface TradingScreenProps {
   onBack?: () => void;
 }
 
+type TradeDirection = "buy" | "sell";
+type TradeOutcome = "yes" | "no";
+
 function formatPrice(micros: number): string {
   return `$${(micros / 1_000_000).toFixed(2)}`;
 }
@@ -47,35 +49,151 @@ function formatCountdown(totalSeconds: number): string {
   return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function LadderView({
+function formatTradingAction(intent: TradeIntent): string {
+  switch (intent) {
+    case "buy-yes":
+      return "Buy Yes";
+    case "buy-no":
+      return "Buy No";
+    case "sell-yes":
+      return "Sell Yes";
+    case "sell-no":
+      return "Sell No";
+  }
+}
+
+function formatMicrosTotal(micros: number): string {
+  return formatUsd(micros);
+}
+
+function getIntentForSelection(
+  direction: TradeDirection,
+  outcome: TradeOutcome,
+): TradeIntent {
+  if (direction === "buy" && outcome === "yes") return "buy-yes";
+  if (direction === "buy" && outcome === "no") return "buy-no";
+  if (direction === "sell" && outcome === "yes") return "sell-yes";
+  return "sell-no";
+}
+
+function getGuidanceForIntent(
+  intent: TradeIntent,
+  constraints: ReturnType<typeof getPositionConstraints>,
+): string | null {
+  switch (intent) {
+    case "buy-yes":
+      return constraints.buyYesGuidance;
+    case "buy-no":
+      return constraints.buyNoGuidance;
+    case "sell-yes":
+      return constraints.sellYesGuidance;
+    case "sell-no":
+      return constraints.sellNoGuidance;
+  }
+}
+
+function getIntentDisabled(
+  intent: TradeIntent,
+  constraints: ReturnType<typeof getPositionConstraints>,
+): boolean {
+  switch (intent) {
+    case "buy-yes":
+      return !constraints.canBuyYes;
+    case "buy-no":
+      return !constraints.canBuyNo;
+    case "sell-yes":
+      return !constraints.canSellYes;
+    case "sell-no":
+      return !constraints.canSellNo;
+  }
+}
+
+function formatSpread(
+  bestBidMicros: number | null,
+  bestAskMicros: number | null,
+): string {
+  if (bestBidMicros == null || bestAskMicros == null) return "No spread";
+  return formatPrice(bestAskMicros - bestBidMicros);
+}
+
+function SideQuoteCard({
   label,
   ladder,
+  active,
 }: {
   label: string;
   ladder: OrderBookLadder | null;
+  active: boolean;
 }) {
-  if (!ladder) return null;
+  const bestBid = ladder?.bids[0]?.priceMicros ?? null;
+  const bestAsk = ladder?.asks[0]?.priceMicros ?? null;
+
   return (
-    <div className="ladder">
-      <h3>{label}</h3>
-      <table className="ob-table">
-        <thead>
-          <tr>
-            <th>Bid</th>
-            <th>Price</th>
-            <th>Ask</th>
-          </tr>
-        </thead>
-        <tbody>
-          {mergeLevels(ladder).map((row, i) => (
-            <tr key={i}>
-              <td className="bid-cell">{row.bidSize ?? ""}</td>
-              <td className="price-cell">{formatPrice(row.price)}</td>
-              <td className="ask-cell">{row.askSize ?? ""}</td>
+    <div className={`side-quote-card${active ? " active" : ""}`}>
+      <div className="side-quote-head">
+        <h3>{label}</h3>
+        {active && <span className="side-quote-active">Selected</span>}
+      </div>
+      <dl className="side-quote-grid">
+        <div>
+          <dt>Best bid</dt>
+          <dd>{bestBid == null ? "No bid" : formatPrice(bestBid)}</dd>
+        </div>
+        <div>
+          <dt>Best ask</dt>
+          <dd>{bestAsk == null ? "No ask" : formatPrice(bestAsk)}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function LadderView({
+  label,
+  ladder,
+  active,
+}: {
+  label: string;
+  ladder: OrderBookLadder | null;
+  active: boolean;
+}) {
+  const rows = ladder ? mergeLevels(ladder).slice(0, 4) : [];
+  const bestBid = ladder?.bids[0]?.priceMicros ?? null;
+  const bestAsk = ladder?.asks[0]?.priceMicros ?? null;
+
+  return (
+    <div className={`ladder${active ? " active" : ""}`}>
+      <div className="ladder-head">
+        <h3>{label}</h3>
+        <div className="ladder-topline">
+          <span>{bestBid == null ? "No bid" : `Bid ${formatPrice(bestBid)}`}</span>
+          <span>{bestAsk == null ? "No ask" : `Ask ${formatPrice(bestAsk)}`}</span>
+        </div>
+      </div>
+      {rows.length === 0 ? (
+        <p className="ladder-empty">
+          {ladder == null ? "Loading live quotes..." : "No resting orders yet."}
+        </p>
+      ) : (
+        <table className="ob-table">
+          <thead>
+            <tr>
+              <th>Bid</th>
+              <th>Price</th>
+              <th>Ask</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i}>
+                <td className="bid-cell">{row.bidSize ?? ""}</td>
+                <td className="price-cell">{formatPrice(row.price)}</td>
+                <td className="ask-cell">{row.askSize ?? ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
@@ -135,38 +253,43 @@ export function TradingScreen({
   onRedeem,
   onBack,
 }: TradingScreenProps) {
-  const [selectedIntent, setSelectedIntent] = useState<TradeIntent>("buy-yes");
+  const [tradeDirection, setTradeDirection] = useState<TradeDirection>("buy");
+  const [selectedOutcome, setSelectedOutcome] = useState<TradeOutcome>("yes");
   const [quantity, setQuantity] = useState(1);
   const constraints = getPositionConstraints(position);
   const nowUtc = Math.floor(Date.now() / 1000);
   const countdown = getCountdownSeconds(marketCloseUtc, nowUtc);
   const isClosed = countdown <= 0;
   const isSettled = phase === "Settled";
+  const selectedIntent = getIntentForSelection(tradeDirection, selectedOutcome);
+  const selectedLadder = selectedOutcome === "yes" ? yesLadder : noLadder;
+  const selectedBestBid = selectedLadder?.bids[0]?.priceMicros ?? null;
+  const selectedBestAsk = selectedLadder?.asks[0]?.priceMicros ?? null;
+  const selectedExecutionPrice =
+    tradeDirection === "buy" ? selectedBestAsk : selectedBestBid;
+  const selectedTotalMicros =
+    selectedExecutionPrice == null ? null : selectedExecutionPrice * quantity;
+  const settlementValueMicros = 1_000_000 * quantity;
+  const selectedGuidance = isClosed
+    ? "This market is closed."
+    : getGuidanceForIntent(selectedIntent, constraints);
+  const selectedDisabled = getIntentDisabled(selectedIntent, constraints);
 
-  const bestPrice = getBestPriceForIntent(selectedIntent, yesLadder, noLadder);
   const payoff =
-    bestPrice != null ? computePayoff(selectedIntent, bestPrice) : null;
+    selectedExecutionPrice != null
+      ? computePayoff(selectedIntent, selectedExecutionPrice)
+      : null;
 
-  async function handleIntentClick(intent: TradeIntent) {
-    setSelectedIntent(intent);
+  async function handleIntentClick() {
     if (onExecute) {
       try {
-        await onExecute(intent, quantity);
+        await onExecute(selectedIntent, quantity);
       } catch {
         // Error handled by parent via lastError prop
       }
     } else {
-      onIntent(intent);
+      onIntent(selectedIntent);
     }
-  }
-
-  function isIntentDisabled(intent: TradeIntent): boolean {
-    if (executing) return true;
-    if (intent === "buy-yes") return !constraints.canBuyYes;
-    if (intent === "buy-no") return !constraints.canBuyNo;
-    if (intent === "sell-yes") return !constraints.canSellYes;
-    if (intent === "sell-no") return !constraints.canSellNo;
-    return false;
   }
 
   const hasWinningTokens =
@@ -174,87 +297,249 @@ export function TradingScreen({
     position &&
     ((outcome === "Yes" && position.yesQuantity > 0n) ||
       (outcome === "No" && position.noQuantity > 0n));
+  const question = `Will ${ticker} close above ${formatPrice(strikePriceMicros)} today?`;
+  const summary = `Yes settles to $1.00 if ${ticker} finishes above the strike at the close. No settles to $1.00 if it does not.`;
+  const actionLabel = formatTradingAction(selectedIntent);
+  const showLiquidityMessage =
+    !isSettled && selectedExecutionPrice == null && !selectedGuidance;
 
   return (
     <section className="trading-screen">
-      <header className="trading-header">
-        {onBack && (
-          <button type="button" className="back-btn" onClick={onBack}>
-            &larr; Markets
-          </button>
-        )}
-        <h2>
-          {ticker} &mdash; Strike {formatPrice(strikePriceMicros)}
-        </h2>
-        {isSettled ? (
-          <span data-testid="countdown-timer" className="phase-badge settled">
-            Settled: {outcome === "Yes" ? "YES" : "NO"}
-          </span>
-        ) : isClosed ? (
-          <span data-testid="countdown-timer" className="phase-badge closed">
-            Market Closed
-          </span>
-        ) : (
-          <span data-testid="countdown-timer">
-            Closes in {formatCountdown(countdown)}
-          </span>
+      <header className="trade-hero">
+        <div className="trade-hero-top">
+          {onBack && (
+            <button type="button" className="back-btn" onClick={onBack}>
+              &larr; Markets
+            </button>
+          )}
+          {isSettled ? (
+            <span data-testid="countdown-timer" className="phase-badge settled">
+              Settled: {outcome === "Yes" ? "YES" : "NO"}
+            </span>
+          ) : isClosed ? (
+            <span data-testid="countdown-timer" className="phase-badge closed">
+              Market Closed
+            </span>
+          ) : (
+            <span data-testid="countdown-timer" className="phase-badge live">
+              Closes in {formatCountdown(countdown)}
+            </span>
+          )}
+        </div>
+
+        <p className="trade-kicker">{ticker} Daily Market</p>
+        <h1 className="trade-question">{question}</h1>
+        <p className="trade-summary">{summary}</p>
+
+        <div className="trade-meta-grid">
+          <div className="trade-meta-card">
+            <span>Strike</span>
+            <strong>{formatPrice(strikePriceMicros)}</strong>
+          </div>
+          <div className="trade-meta-card">
+            <span>Close</span>
+            <strong>4:00 PM ET</strong>
+          </div>
+          <div className="trade-meta-card">
+            <span>Status</span>
+            <strong>{isSettled ? "Settled" : isClosed ? "Closed" : "Trading"}</strong>
+          </div>
+        </div>
+
+        {(position || usdcBalance != null) && (
+          <div className="balance-chips">
+            {usdcBalance != null && (
+              <div className="balance-chip">
+                <span>Cash</span>
+                <strong>{formatPrice(Number(usdcBalance))}</strong>
+              </div>
+            )}
+            {position && (
+              <div className="balance-chip">
+                <span>Yes</span>
+                <strong>{formatTokens(position.yesQuantity)}</strong>
+              </div>
+            )}
+            {position && (
+              <div className="balance-chip">
+                <span>No</span>
+                <strong>{formatTokens(position.noQuantity)}</strong>
+              </div>
+            )}
+          </div>
         )}
       </header>
 
-      {/* Balances */}
-      {(position || usdcBalance != null) && (
-        <div className="balances-bar">
-          {usdcBalance != null && (
-            <span>USDC: {formatTokens(usdcBalance)}</span>
-          )}
-          {position && <span>Yes: {formatTokens(position.yesQuantity)}</span>}
-          {position && <span>No: {formatTokens(position.noQuantity)}</span>}
-        </div>
-      )}
+      <div className="trade-layout">
+        {!isSettled && (
+          <section className="ticket-panel">
+            <div className="ticket-heading">
+              <p className="ticket-kicker">Trade Ticket</p>
+              <h2>{actionLabel}</h2>
+            </div>
 
-      {/* Order Book */}
-      <div className="order-book">
-        <LadderView label="Yes" ladder={yesLadder} />
-        <LadderView label="No" ladder={noLadder} />
+            <div className="ticket-toggle-group">
+              <span className="ticket-label">Action</span>
+              <div className="segmented-control">
+                <button
+                  type="button"
+                  className={tradeDirection === "buy" ? "segment active" : "segment"}
+                  aria-pressed={tradeDirection === "buy"}
+                  onClick={() => setTradeDirection("buy")}
+                >
+                  Buy
+                </button>
+                <button
+                  type="button"
+                  className={tradeDirection === "sell" ? "segment active" : "segment"}
+                  aria-pressed={tradeDirection === "sell"}
+                  onClick={() => setTradeDirection("sell")}
+                >
+                  Sell
+                </button>
+              </div>
+            </div>
+
+            <div className="ticket-toggle-group">
+              <span className="ticket-label">Outcome</span>
+              <div className="segmented-control outcome-control">
+                <button
+                  type="button"
+                  className={selectedOutcome === "yes" ? "segment yes active" : "segment yes"}
+                  aria-pressed={selectedOutcome === "yes"}
+                  onClick={() => setSelectedOutcome("yes")}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  className={selectedOutcome === "no" ? "segment no active" : "segment no"}
+                  aria-pressed={selectedOutcome === "no"}
+                  onClick={() => setSelectedOutcome("no")}
+                >
+                  No
+                </button>
+              </div>
+            </div>
+
+            <div className="quote-strip">
+              <div className="quote-card">
+                <span>Best bid</span>
+                <strong>
+                  {selectedBestBid == null ? "No bid" : formatPrice(selectedBestBid)}
+                </strong>
+              </div>
+              <div className="quote-card">
+                <span>Best ask</span>
+                <strong>
+                  {selectedBestAsk == null ? "No ask" : formatPrice(selectedBestAsk)}
+                </strong>
+              </div>
+              <div className="quote-card">
+                <span>Spread</span>
+                <strong>{formatSpread(selectedBestBid, selectedBestAsk)}</strong>
+              </div>
+              <div className="quote-card highlight">
+                <span>{tradeDirection === "buy" ? "Est. cost" : "Est. proceeds"}</span>
+                <strong>
+                  {selectedTotalMicros == null
+                    ? "No quote"
+                    : formatMicrosTotal(selectedTotalMicros)}
+                </strong>
+              </div>
+            </div>
+
+            <div className="quantity-block">
+              <div className="quantity-row">
+                <label htmlFor="qty-input">Quantity</label>
+                <input
+                  id="qty-input"
+                  type="number"
+                  min={1}
+                  value={quantity}
+                  onChange={(e) =>
+                    setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))
+                  }
+                  disabled={executing}
+                />
+              </div>
+              <div className="quantity-shortcuts">
+                {[1, 5, 10].map((amount) => (
+                  <button
+                    key={amount}
+                    type="button"
+                    className={quantity === amount ? "shortcut active" : "shortcut"}
+                    onClick={() => setQuantity(amount)}
+                    disabled={executing}
+                  >
+                    {amount}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={`trade-submit ${tradeDirection} ${selectedOutcome}`}
+              onClick={() => handleIntentClick()}
+              disabled={executing || isClosed || selectedDisabled || selectedExecutionPrice == null}
+            >
+              {executing ? "Awaiting Confirmation..." : actionLabel}
+            </button>
+
+            {payoff && (
+              <p className="payoff">
+                {tradeDirection === "buy"
+                  ? `${actionLabel} ${quantity} for ${formatMicrosTotal(selectedTotalMicros ?? 0)}. Max settlement value ${formatMicrosTotal(settlementValueMicros)}.`
+                  : `${actionLabel} ${quantity} at ${formatPrice(selectedExecutionPrice ?? 0)} per token.`}
+                {" "}
+                {payoff.formatDisplay(ticker, strikePriceMicros)}
+              </p>
+            )}
+
+            {selectedGuidance && <p className="guidance">{selectedGuidance}</p>}
+            {showLiquidityMessage && (
+              <p className="guidance">
+                No live {tradeDirection === "buy" ? "ask" : "bid"} is available for {selectedOutcome.toUpperCase()} right now.
+              </p>
+            )}
+            {lastError && <p className="trade-error">{lastError}</p>}
+          </section>
+        )}
+
+        <section className="book-panel">
+          <div className="ticket-heading">
+            <p className="ticket-kicker">Live Market</p>
+            <h2>Bid / Ask</h2>
+          </div>
+          <div className="side-quote-row">
+            <SideQuoteCard
+              label="Yes"
+              ladder={yesLadder}
+              active={selectedOutcome === "yes"}
+            />
+            <SideQuoteCard
+              label="No"
+              ladder={noLadder}
+              active={selectedOutcome === "no"}
+            />
+          </div>
+
+          <div className="order-book">
+            <LadderView
+              label="Yes"
+              ladder={yesLadder}
+              active={selectedOutcome === "yes"}
+            />
+            <LadderView
+              label="No"
+              ladder={noLadder}
+              active={selectedOutcome === "no"}
+            />
+          </div>
+        </section>
       </div>
 
-      {/* Quantity + Intent Buttons */}
-      {!isSettled && (
-        <>
-          {onExecute && (
-            <div className="quantity-row">
-              <label htmlFor="qty-input">Quantity (tokens):</label>
-              <input
-                id="qty-input"
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) =>
-                  setQuantity(Math.max(1, parseInt(e.target.value) || 1))
-                }
-                disabled={executing}
-              />
-            </div>
-          )}
-          <div className="intent-buttons">
-            {tradingIntentDescriptors.map((desc) => (
-              <button
-                key={desc.intent}
-                className={`intent-btn intent-${desc.intent}`}
-                onClick={() => handleIntentClick(desc.intent)}
-                disabled={isIntentDisabled(desc.intent)}
-                aria-pressed={selectedIntent === desc.intent}
-              >
-                {executing && selectedIntent === desc.intent
-                  ? "Sending..."
-                  : desc.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Redeem section for settled markets */}
       {hasWinningTokens && onRedeem && (
         <div className="redeem-section">
           <p>
@@ -263,7 +548,7 @@ export function TradingScreen({
           </p>
           <button
             type="button"
-            className="intent-btn redeem-btn"
+            className="trade-submit buy yes"
             onClick={() => {
               const redeemQty =
                 outcome === "Yes"
@@ -277,45 +562,6 @@ export function TradingScreen({
           </button>
         </div>
       )}
-
-      {/* Guidance */}
-      {!constraints.canBuyYes && constraints.buyYesGuidance && (
-        <p className="guidance">{constraints.buyYesGuidance}</p>
-      )}
-      {!constraints.canBuyNo && constraints.buyNoGuidance && (
-        <p className="guidance">{constraints.buyNoGuidance}</p>
-      )}
-      {!constraints.canSellYes && constraints.sellYesGuidance && (
-        <p className="guidance">{constraints.sellYesGuidance}</p>
-      )}
-      {!constraints.canSellNo && constraints.sellNoGuidance && (
-        <p className="guidance">{constraints.sellNoGuidance}</p>
-      )}
-
-      {payoff && !isSettled && (
-        <p className="payoff">
-          {payoff.formatDisplay(ticker, strikePriceMicros)}
-        </p>
-      )}
-
-      {lastError && <p className="trade-error">{lastError}</p>}
     </section>
   );
-}
-
-function getBestPriceForIntent(
-  intent: TradeIntent,
-  yesLadder: OrderBookLadder | null,
-  noLadder: OrderBookLadder | null,
-): number | null {
-  switch (intent) {
-    case "buy-yes":
-      return yesLadder?.asks[0]?.priceMicros ?? null;
-    case "buy-no":
-      return noLadder?.asks[0]?.priceMicros ?? null;
-    case "sell-yes":
-      return yesLadder?.bids[0]?.priceMicros ?? null;
-    case "sell-no":
-      return noLadder?.bids[0]?.priceMicros ?? null;
-  }
 }

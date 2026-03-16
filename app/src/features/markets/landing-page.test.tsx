@@ -71,10 +71,10 @@ describe("MarketsLandingPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders empty market list when connected with no program", () => {
+  it("renders empty market list when connected with no program", async () => {
     mockWallet.connected = true;
     mockWallet.publicKey = { toBase58: () => "ABC123" } as any;
     render(<MarketsLandingPage />);
-    expect(screen.getByText(/no markets available/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no markets available/i)).toBeInTheDocument();
   });
 });
