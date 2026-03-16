@@ -3,6 +3,12 @@
 Two demo modes: **CLI demo** (automated end-to-end lifecycle) and **live browser demo**
 (interactive trading in the frontend with Phantom wallet).
 
+For the live browser demo, the browser wallet and the market maker are **different
+wallets**:
+
+- **Trader**: the wallet from `ANCHOR_WALLET` in `.env` or `.env.devnet` that you import into Phantom
+- **Market maker**: a separate keypair managed by the seed script that posts the resting Phoenix orders
+
 Both modes can run against **devnet** or a **local validator**.
 
 ---
@@ -150,9 +156,9 @@ pnpm seed            # or: pnpm seed:devnet (devnet)
 This creates:
 - 1 AAPL market in Trading phase (24h expiry)
 - Phoenix order book with resting bids (@45, @48, @50) and asks (@52, @55, @58)
-- Phoenix seat for the payer wallet
-- Token accounts (USDC, YES, NO)
-- Mints pairs for order book liquidity (adapts to available USDC)
+- Phoenix seats for both the trader wallet and the market maker
+- Token accounts (USDC, YES, NO) for the trader and market maker
+- Mints pairs for **market maker** order book liquidity
 
 On local, the script also:
 - Airdrops 5 SOL to the payer
@@ -161,20 +167,22 @@ On local, the script also:
 
 Wait for `SEED COMPLETE` output. Note the strike price and wallet balances.
 
-### Step 2: Import Wallet into Phantom
+### Step 2: Import Trader Wallet into Phantom
 
 1. Open Phantom browser extension
 2. Go to **Settings > Developer Settings** and enable **Testnet Mode**
 3. Switch network:
    - **Devnet**: Select **Solana Devnet**
    - **Local**: Add custom RPC — name it "Local", URL `http://127.0.0.1:8899`
-4. Go to **Settings > Manage Accounts > Import Private Key**
-5. Name: `Meridian Demo`
-6. Paste private key:
+4. Import the private key for `ANCHOR_WALLET` from the active env file:
+   - Local: `.env`
+   - Devnet: `.env.devnet`
+5. Name it `Meridian Demo`
+6. Verify the address matches:
+   ```bash
+   solana-keygen pubkey ~/.config/solana/id.json
    ```
-   5cc4AGWktBXEuz85Xz9eYkKpwKUF44p4xqTtXSppRJu3FTtsWYUYuhEJXySi2TBkgBDE4VT9KdfhSwG2p6h8pMXa
-   ```
-7. Verify the address shown is `HNTaM2M9pDiboXBwpjc27w5ys6q5M4jWNwtGFmz2WU6Y`
+   Or whatever path `ANCHOR_WALLET` points to in your env file.
 
 ### Step 3: Start Frontend
 
@@ -259,7 +267,7 @@ Navigate to the AAPL market from the Markets page and click into the trading vie
 
 This step uses the CLI to settle the market, then demonstrates redemption in the browser.
 
-1. **Ensure the user holds some tokens** (buy YES or NO if needed so you have a position)
+1. **Ensure the trader wallet holds some tokens** (buy YES or NO if needed so you have a position)
 2. In the terminal, run the reset which will settle the market:
    ```bash
    pnpm seed:reset    # or: pnpm seed:devnet:reset (devnet)
@@ -330,7 +338,6 @@ remaining pairs, redeems winning tokens, and reports final USDC balance.
 
 | Command | Purpose |
 |---------|---------|
-| `pnpm demo` | CLI-only full lifecycle demo (local) |
 | `pnpm demo:devnet` | CLI-only full lifecycle demo (devnet) |
 | `pnpm seed` | Seed local validator for browser demo |
 | `pnpm seed:reset` | Settle + clean up local markets |

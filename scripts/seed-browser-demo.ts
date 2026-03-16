@@ -19,6 +19,7 @@
 
 import * as anchor from "@coral-xyz/anchor";
 import {
+  createTransferInstruction,
   createAssociatedTokenAccount,
   createMint,
   getAccount,
@@ -49,8 +50,6 @@ import {
   buildChangeMarketStatusIx,
   PHOENIX_MARKET_STATUS,
   getMarketHeader,
-  requestSeat,
-  type CreatePhoenixMarketParams,
 } from "../automation/src/clients/phoenix.js";
 
 /** Base lots per whole token — must match the Phoenix market config */
@@ -77,6 +76,8 @@ const AAPL_FEED_ID = new Uint8Array([
 const RESTING_ORDER_SIZE = 8; // 8 pairs worth of resting orders each side
 const MINT_PAIRS = 20; // ideal pairs for order book liquidity
 const MIN_USDC_FOR_SEED = 5; // bare minimum USDC to run the seed
+const DEMO_TRADER_USDC = 10; // lets the browser wallet walk through all trade intents
+const DEMO_MARKET_MAKER_KEYPAIR_PATH = "keys/demo-wallet-2.json";
 
 // ─── CLI Flags ────────────────────────────────────────────────────────────────
 
@@ -211,6 +212,40 @@ async function getOrCreateAta(
   return createAssociatedTokenAccount(connection, payer, mint, owner);
 }
 
+async function ensurePhoenixSeat(
+  connection: Connection,
+  phoenixMarket: PublicKey,
+  marketAuthority: Keypair,
+  trader: Keypair,
+): Promise<PublicKey> {
+  const seatPubkey = getSeatAddress(phoenixMarket, trader.publicKey);
+  const seatAcct = await connection.getAccountInfo(seatPubkey);
+  if (seatAcct && seatAcct.data.length > 0) {
+    return seatPubkey;
+  }
+
+  const requestIx = createRequestSeatInstruction({
+    phoenixProgram: PHOENIX_PROGRAM_ID,
+    logAuthority: getLogAuthority(),
+    market: phoenixMarket,
+    payer: trader.publicKey,
+    seat: seatPubkey,
+  });
+  const approveIx = buildApproveSeatIx(
+    phoenixMarket,
+    marketAuthority.publicKey,
+    seatPubkey,
+  );
+  const seatTx = new Transaction().add(requestIx, approveIx);
+  const signers =
+    trader.publicKey.equals(marketAuthority.publicKey)
+      ? [marketAuthority]
+      : [trader, marketAuthority];
+  const seatSig = await connection.sendTransaction(seatTx, signers);
+  await connection.confirmTransaction(seatSig, "confirmed");
+  return seatPubkey;
+}
+
 // ─── Reset Mode ───────────────────────────────────────────────────────────────
 
 async function runReset() {
@@ -243,6 +278,7 @@ async function runReset() {
 
   const connection = new Connection(rpcUrl, "confirmed");
   const payer = loadKeypair(walletPath);
+  const marketMaker = loadKeypair(DEMO_MARKET_MAKER_KEYPAIR_PATH);
   const programId = new PublicKey(programIdStr);
 
   const provider = new anchor.AnchorProvider(connection, new anchor.Wallet(payer), { commitment: "confirmed" });
@@ -253,6 +289,7 @@ async function runReset() {
   const [configPda] = deriveConfigPda(programId);
 
   result("Payer", payer.publicKey.toBase58());
+  result("Market maker", marketMaker.publicKey.toBase58());
 
   // ── Discover all markets ──────────────────────────────────────────────
 
@@ -292,29 +329,30 @@ async function runReset() {
     const [phoenixBaseVault] = derivePhoenixVault(phoenixMarketAddr, yesMintPda);
     const [phoenixQuoteVault] = derivePhoenixVault(phoenixMarketAddr, usdcMint);
 
-    // Cancel orders + withdraw Phoenix funds
-    try {
-      const cancelIx = createCancelAllOrdersWithFreeFundsInstruction({
-        phoenixProgram: PHOENIX_PROGRAM_ID, logAuthority: logAuth,
-        market: phoenixMarketAddr, trader: payer.publicKey,
-      });
-      await connection.sendTransaction(new Transaction().add(cancelIx), [payer]);
-      result("Orders", "cancelled");
-    } catch { /* no orders */ }
+    for (const [label, trader] of [["Payer", payer], ["MM", marketMaker]] as const) {
+      try {
+        const cancelIx = createCancelAllOrdersWithFreeFundsInstruction({
+          phoenixProgram: PHOENIX_PROGRAM_ID, logAuthority: logAuth,
+          market: phoenixMarketAddr, trader: trader.publicKey,
+        });
+        await connection.sendTransaction(new Transaction().add(cancelIx), [trader]);
+        result(`${label} orders`, "cancelled");
+      } catch { /* no orders */ }
 
-    try {
-      const userYes = await getAssociatedTokenAddress(yesMintPda, payer.publicKey);
-      const userUsdc = await getAssociatedTokenAddress(usdcMint, payer.publicKey);
-      const withdrawIx = createWithdrawFundsInstruction({
-        phoenixProgram: PHOENIX_PROGRAM_ID, logAuthority: logAuth,
-        market: phoenixMarketAddr, trader: payer.publicKey,
-        baseAccount: userYes, quoteAccount: userUsdc,
-        baseVault: phoenixBaseVault, quoteVault: phoenixQuoteVault,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      }, { withdrawFundsParams: { quoteLotsToWithdraw: null, baseLotsToWithdraw: null } });
-      await connection.sendTransaction(new Transaction().add(withdrawIx), [payer]);
-      result("Phoenix funds", "withdrawn");
-    } catch { /* nothing to withdraw */ }
+      try {
+        const userYes = await getAssociatedTokenAddress(yesMintPda, trader.publicKey);
+        const userUsdc = await getAssociatedTokenAddress(usdcMint, trader.publicKey);
+        const withdrawIx = createWithdrawFundsInstruction({
+          phoenixProgram: PHOENIX_PROGRAM_ID, logAuthority: logAuth,
+          market: phoenixMarketAddr, trader: trader.publicKey,
+          baseAccount: userYes, quoteAccount: userUsdc,
+          baseVault: phoenixBaseVault, quoteVault: phoenixQuoteVault,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        }, { withdrawFundsParams: { quoteLotsToWithdraw: null, baseLotsToWithdraw: null } });
+        await connection.sendTransaction(new Transaction().add(withdrawIx), [trader]);
+        result(`${label} Phoenix`, "funds withdrawn");
+      } catch { /* nothing to withdraw */ }
+    }
 
     // Close Phoenix market if active
     if (m.phase === "trading") {
@@ -365,41 +403,43 @@ async function runReset() {
       }
     }
 
-    // Merge remaining pairs
-    const userYesAta = await getAssociatedTokenAddress(yesMintPda, payer.publicKey);
-    const userNoAta = await getAssociatedTokenAddress(noMintPda, payer.publicKey);
-    const userUsdcAta = await getAssociatedTokenAddress(usdcMint, payer.publicKey);
-
-    try {
-      const yesBal = (await getAccount(connection, userYesAta)).amount;
-      const noBal = (await getAccount(connection, userNoAta)).amount;
-      const pairsToMerge = yesBal < noBal ? yesBal : noBal;
-      if (pairsToMerge > 0n) {
-        const p = Number(pairsToMerge) / ONE_USDC;
-        await (program.methods as any).mergePair(new anchor.BN(p)).accounts({
-          user: payer.publicKey, config: configPda, market: m.pda, vault: vaultPda,
-          yesMint: yesMintPda, noMint: noMintPda, userUsdc: userUsdcAta,
-          userYes: userYesAta, userNo: userNoAta, tokenProgram: TOKEN_PROGRAM_ID,
-        }).signers([payer]).rpc();
-        result("Merged", `${p} pairs -> USDC`);
-      }
-    } catch { /* nothing to merge */ }
-
-    // Redeem winning tokens if settled
     const afterSettle = await (program.account as any).meridianMarket.fetch(m.pda);
-    if (Object.keys(afterSettle.phase)[0] === "settled") {
+    const finalPhase = Object.keys(afterSettle.phase)[0];
+
+    for (const [label, signer] of [["Payer", payer], ["MM", marketMaker]] as const) {
+      const userYesAta = await getAssociatedTokenAddress(yesMintPda, signer.publicKey);
+      const userNoAta = await getAssociatedTokenAddress(noMintPda, signer.publicKey);
+      const userUsdcAta = await getAssociatedTokenAddress(usdcMint, signer.publicKey);
+
       try {
         const yesBal = (await getAccount(connection, userYesAta)).amount;
-        const pairsToRedeem = Number(yesBal) / ONE_USDC;
-        if (pairsToRedeem > 0) {
-          await (program.methods as any).redeem(new anchor.BN(pairsToRedeem)).accounts({
-            user: payer.publicKey, config: configPda, market: m.pda, vault: vaultPda,
+        const noBal = (await getAccount(connection, userNoAta)).amount;
+        const pairsToMerge = yesBal < noBal ? yesBal : noBal;
+        if (pairsToMerge > 0n) {
+          const p = Number(pairsToMerge) / ONE_USDC;
+          await (program.methods as any).mergePair(new anchor.BN(p)).accounts({
+            user: signer.publicKey, config: configPda, market: m.pda, vault: vaultPda,
             yesMint: yesMintPda, noMint: noMintPda, userUsdc: userUsdcAta,
             userYes: userYesAta, userNo: userNoAta, tokenProgram: TOKEN_PROGRAM_ID,
-          }).signers([payer]).rpc();
-          result("Redeemed", `${pairsToRedeem} winning tokens`);
+          }).signers([signer]).rpc();
+          result(`${label} merge`, `${p} pairs -> USDC`);
         }
-      } catch { /* nothing to redeem */ }
+      } catch { /* nothing to merge */ }
+
+      if (finalPhase === "settled") {
+        try {
+          const yesBal = (await getAccount(connection, userYesAta)).amount;
+          const pairsToRedeem = Number(yesBal) / ONE_USDC;
+          if (pairsToRedeem > 0) {
+            await (program.methods as any).redeem(new anchor.BN(pairsToRedeem)).accounts({
+              user: signer.publicKey, config: configPda, market: m.pda, vault: vaultPda,
+              yesMint: yesMintPda, noMint: noMintPda, userUsdc: userUsdcAta,
+              userYes: userYesAta, userNo: userNoAta, tokenProgram: TOKEN_PROGRAM_ID,
+            }).signers([signer]).rpc();
+            result(`${label} redeem`, `${pairsToRedeem} winning tokens`);
+          }
+        } catch { /* nothing to redeem */ }
+      }
     }
 
     result("Market", "cleanup done");
@@ -458,29 +498,41 @@ async function runSeed() {
 
   const connection = new Connection(rpcUrl, "confirmed");
   const payer = loadKeypair(walletPath);
+  const marketMaker = loadKeypair(DEMO_MARKET_MAKER_KEYPAIR_PATH);
   const programId = new PublicKey(programIdStr);
   const pythReceiver = new PublicKey(pythReceiverStr);
 
   const version = await connection.getVersion();
   result("RPC", `${rpcUrl} (solana-core ${version["solana-core"]})`);
   result("Mode", isLocal ? "local validator" : "devnet");
-  result("Payer", payer.publicKey.toBase58());
+  result("Trader", payer.publicKey.toBase58());
+  result("Market maker", marketMaker.publicKey.toBase58());
 
   // ── Step 2: Ensure SOL balance ──────────────────────────────────────────
 
-  step(2, "Ensure SOL balance");
+  step(2, "Ensure SOL balances");
 
-  let balance = await connection.getBalance(payer.publicKey);
-  if (isLocal && balance < 2 * LAMPORTS_PER_SOL) {
+  let traderBalance = await connection.getBalance(payer.publicKey);
+  if (isLocal && traderBalance < 2 * LAMPORTS_PER_SOL) {
     const sig = await connection.requestAirdrop(payer.publicKey, 5 * LAMPORTS_PER_SOL);
     await connection.confirmTransaction(sig, "confirmed");
-    balance = await connection.getBalance(payer.publicKey);
-    result("Airdrop", "5 SOL");
+    traderBalance = await connection.getBalance(payer.publicKey);
+    result("Trader airdrop", "5 SOL");
   }
-  if (balance < 0.5 * LAMPORTS_PER_SOL) {
-    fail("SOL balance", ">= 0.5 SOL", `${balance / LAMPORTS_PER_SOL} SOL`);
+  if (isLocal) {
+    let mmBalance = await connection.getBalance(marketMaker.publicKey);
+    if (mmBalance < 2 * LAMPORTS_PER_SOL) {
+      const sig = await connection.requestAirdrop(marketMaker.publicKey, 5 * LAMPORTS_PER_SOL);
+      await connection.confirmTransaction(sig, "confirmed");
+      mmBalance = await connection.getBalance(marketMaker.publicKey);
+      result("MM airdrop", "5 SOL");
+    }
+    result("MM balance", `${mmBalance / LAMPORTS_PER_SOL} SOL`);
   }
-  result("Balance", `${balance / LAMPORTS_PER_SOL} SOL`);
+  if (traderBalance < 0.5 * LAMPORTS_PER_SOL) {
+    fail("Trader SOL balance", ">= 0.5 SOL", `${traderBalance / LAMPORTS_PER_SOL} SOL`);
+  }
+  result("Trader balance", `${traderBalance / LAMPORTS_PER_SOL} SOL`);
 
   // ── Step 3: Anchor setup ───────────────────────────────────────────────
 
@@ -559,44 +611,33 @@ async function runSeed() {
     result("Config initialized", explorerUrl(sig));
   }
 
-  // ── Step 5: Ensure USDC balance ─────────────────────────────────────────
+  // ── Step 5: Fund trader + market maker ─────────────────────────────────
 
-  step(5, "Ensure USDC balance for demo");
+  step(5, "Fund trader and market maker");
 
   const payerUsdcAta = await getOrCreateAta(connection, payer, usdcMint, payer.publicKey);
-  let usdcBalance: bigint;
+  const mmUsdcAta = await getOrCreateAta(connection, payer, usdcMint, marketMaker.publicKey);
+  let traderUsdcBalance: bigint;
   try {
-    usdcBalance = (await getAccount(connection, payerUsdcAta)).amount;
+    traderUsdcBalance = (await getAccount(connection, payerUsdcAta)).amount;
   } catch {
-    usdcBalance = 0n;
+    traderUsdcBalance = 0n;
   }
+  const traderTargetUsdc = BigInt(DEMO_TRADER_USDC * ONE_USDC);
+  result("Trader USDC", formatUsdc(traderUsdcBalance));
+  result("Trader target", formatUsdc(traderTargetUsdc));
 
-  const idealUsdc = BigInt(MINT_PAIRS * ONE_USDC);
-  result("Current USDC", formatUsdc(usdcBalance));
-  result("Ideal USDC", formatUsdc(idealUsdc));
-
-  // Try to mint more if we're short
-  if (usdcBalance < idealUsdc) {
+  if (traderUsdcBalance < traderTargetUsdc) {
     try {
-      const deficit = idealUsdc - usdcBalance;
+      const deficit = traderTargetUsdc - traderUsdcBalance;
       await mintTo(connection, payer, usdcMint, payerUsdcAta, payer.publicKey, deficit);
-      usdcBalance = (await getAccount(connection, payerUsdcAta)).amount;
-      result("Minted USDC", formatUsdc(deficit));
+      traderUsdcBalance = (await getAccount(connection, payerUsdcAta)).amount;
+      result("Minted trader USDC", formatUsdc(deficit));
     } catch {
-      result("Mint authority", "payer is not USDC mint authority — using existing balance");
+      result("Trader mint", "payer is not USDC mint authority — using existing balance");
     }
   }
-
-  // Determine how many pairs we can actually mint
-  const availableForMint = Number(usdcBalance) / ONE_USDC;
-  let actualMintPairs = Math.min(MINT_PAIRS, Math.floor(availableForMint));
-
-  if (actualMintPairs < MIN_USDC_FOR_SEED) {
-    fail("USDC", `>= ${MIN_USDC_FOR_SEED} USDC`, `${formatUsdc(usdcBalance)} — run --reset first to recover tokens`);
-  }
-
-  result("USDC available", formatUsdc(usdcBalance));
-  result("Will mint", `${actualMintPairs} pairs`);
+  result("Trader funded", formatUsdc(traderUsdcBalance));
 
   // ── Step 6: Create Meridian market ──────────────────────────────────────
 
@@ -743,86 +784,49 @@ async function runSeed() {
     result("Phoenix", "already exists");
   }
 
-  // ── Step 8: Request + approve seat ─────────────────────────────────────
+  // ── Step 8: Request + approve trader + MM seats ────────────────────────
 
-  step(8, "Request and approve Phoenix seat");
+  step(8, "Request and approve Phoenix seats");
 
-  const seatPubkey = getSeatAddress(phoenixMarketAddr!, payer.publicKey);
-  let seatExists = false;
-  try {
-    const seatAcct = await connection.getAccountInfo(seatPubkey);
-    if (seatAcct && seatAcct.data.length > 0) {
-      seatExists = true;
-      result("Seat", "already exists");
-    }
-  } catch { /* doesn't exist */ }
-
-  if (!seatExists) {
-    const requestIx = createRequestSeatInstruction({
-      phoenixProgram: PHOENIX_PROGRAM_ID,
-      logAuthority: getLogAuthority(),
-      market: phoenixMarketAddr!,
-      payer: payer.publicKey,
-      seat: seatPubkey,
-    });
-    const approveIx = buildApproveSeatIx(phoenixMarketAddr!, payer.publicKey, seatPubkey);
-    const seatTx = new Transaction().add(requestIx, approveIx);
-    const seatSig = await connection.sendTransaction(seatTx, [payer]);
-    await connection.confirmTransaction(seatSig, "confirmed");
-    result("Seat", "requested + approved");
-  }
-
-  result("Seat address", seatPubkey.toBase58());
+  const traderSeatPubkey = await ensurePhoenixSeat(
+    connection,
+    phoenixMarketAddr!,
+    payer,
+    payer,
+  );
+  const mmSeatPubkey = await ensurePhoenixSeat(
+    connection,
+    phoenixMarketAddr!,
+    payer,
+    marketMaker,
+  );
+  result("Trader seat", traderSeatPubkey.toBase58());
+  result("MM seat", mmSeatPubkey.toBase58());
 
   // ── Step 9: Create token accounts ─────────────────────────────────────
 
-  step(9, "Create token accounts");
+  step(9, "Create trader + MM token accounts");
 
   const userYesAta = await getOrCreateAta(connection, payer, yesMintPda, payer.publicKey);
   const userNoAta = await getOrCreateAta(connection, payer, noMintPda, payer.publicKey);
+  const mmYesAta = await getOrCreateAta(connection, payer, yesMintPda, marketMaker.publicKey);
+  const mmNoAta = await getOrCreateAta(connection, payer, noMintPda, marketMaker.publicKey);
 
-  result("USDC ATA", payerUsdcAta.toBase58());
-  result("Yes ATA", userYesAta.toBase58());
-  result("No ATA", userNoAta.toBase58());
+  result("Trader USDC ATA", payerUsdcAta.toBase58());
+  result("Trader Yes ATA", userYesAta.toBase58());
+  result("Trader No ATA", userNoAta.toBase58());
+  result("MM USDC ATA", mmUsdcAta.toBase58());
+  result("MM Yes ATA", mmYesAta.toBase58());
+  result("MM No ATA", mmNoAta.toBase58());
 
-  // ── Step 10: Mint pairs for order book liquidity ────────────────────────
-
-  step(10, `Mint ${actualMintPairs} Yes/No pairs for order book liquidity`);
-
-  const mintSig = await (program.methods as any)
-    .mintPair(new anchor.BN(actualMintPairs))
-    .accounts({
-      user: payer.publicKey,
-      config: configPda,
-      market: marketPda,
-      vault: vaultPda,
-      yesMint: yesMintPda,
-      noMint: noMintPda,
-      userUsdc: payerUsdcAta,
-      userYes: userYesAta,
-      userNo: userNoAta,
-      tokenProgram: TOKEN_PROGRAM_ID,
-    })
-    .signers([payer])
-    .rpc();
-
-  result("Minted", `${actualMintPairs} pairs (${actualMintPairs} USDC deposited)`);
-  result("Tx", explorerUrl(mintSig));
-
-  // ── Step 11: Place resting orders (liquidity for all 4 trade paths) ────
-
-  step(11, "Place resting orders on Phoenix (bids + asks)");
+  // ── Step 10: Fund MM + mint liquidity pairs ────────────────────────────
 
   const [phoenixBaseVault] = derivePhoenixVault(phoenixMarketAddr!, yesMintPda);
   const [phoenixQuoteVault] = derivePhoenixVault(phoenixMarketAddr!, usdcMint);
 
-  // Place multiple price levels so the order book looks real
-  // Bids: 45, 48, 50 (buying Yes cheap — needed for Sell Yes and Buy No)
-  // Asks: 52, 55, 58 (selling Yes expensive — needed for Buy Yes and Sell No)
-  // Scale order sizes to available pairs (leave some free for the user to hold)
+  const actualMintPairs = MINT_PAIRS;
   const orderPairs = Math.min(RESTING_ORDER_SIZE, Math.floor(actualMintPairs * 0.4));
   const perLevel = Math.max(1, Math.floor(orderPairs / 3));
-
   const bidLevels = [
     { price: 45n, size: BigInt(perLevel) },
     { price: 48n, size: BigInt(perLevel) },
@@ -833,28 +837,83 @@ async function runSeed() {
     { price: 55n, size: BigInt(perLevel) },
     { price: 58n, size: BigInt(perLevel) },
   ];
-
-  // Bids require USDC on the quote side. After mintPair, all USDC is in the
-  // vault, so mint extra USDC to fund the bid liquidity (local only).
   const totalBidUsdc = bidLevels.reduce((sum, l) => sum + Number(l.size), 0);
-  if (isLocal) {
-    try {
-      await mintTo(connection, payer, usdcMint, payerUsdcAta, payer.publicKey, BigInt(totalBidUsdc * ONE_USDC));
-      result("Extra USDC for bids", `${totalBidUsdc} USDC`);
-    } catch {
-      result("Extra USDC", "skipped (not mint authority)");
-    }
+  const mmTargetUsdc = BigInt((actualMintPairs + totalBidUsdc) * ONE_USDC);
+  let mmUsdcBalance: bigint;
+  try {
+    mmUsdcBalance = (await getAccount(connection, mmUsdcAta)).amount;
+  } catch {
+    mmUsdcBalance = 0n;
   }
+
+  step(10, `Fund MM and mint ${actualMintPairs} Yes/No pairs for liquidity`);
+  result("MM current USDC", formatUsdc(mmUsdcBalance));
+  result("MM target USDC", formatUsdc(mmTargetUsdc));
+
+  if (mmUsdcBalance < mmTargetUsdc) {
+    const deficit = mmTargetUsdc - mmUsdcBalance;
+    let funded = false;
+    try {
+      await mintTo(connection, payer, usdcMint, mmUsdcAta, payer.publicKey, deficit);
+      funded = true;
+      result("Minted MM USDC", formatUsdc(deficit));
+    } catch {
+      // On devnet the payer is not the mint authority. Fall back to transferring
+      // enough USDC from the trader wallet if available.
+    }
+    if (!funded) {
+      const traderUsdc = (await getAccount(connection, payerUsdcAta)).amount;
+      if (traderUsdc < deficit) {
+        fail("MM funding", `${formatUsdc(mmTargetUsdc)}`, `${formatUsdc(mmUsdcBalance)} available`);
+      }
+      const transferIx = createTransferInstruction(
+        payerUsdcAta,
+        mmUsdcAta,
+        payer.publicKey,
+        deficit,
+      );
+      const transferSig = await connection.sendTransaction(
+        new Transaction().add(transferIx),
+        [payer],
+      );
+      await connection.confirmTransaction(transferSig, "confirmed");
+      result("Transferred MM USDC", formatUsdc(deficit));
+    }
+    mmUsdcBalance = (await getAccount(connection, mmUsdcAta)).amount;
+  }
+
+  const mintSig = await (program.methods as any)
+    .mintPair(new anchor.BN(actualMintPairs))
+    .accounts({
+      user: marketMaker.publicKey,
+      config: configPda,
+      market: marketPda,
+      vault: vaultPda,
+      yesMint: yesMintPda,
+      noMint: noMintPda,
+      userUsdc: mmUsdcAta,
+      userYes: mmYesAta,
+      userNo: mmNoAta,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    })
+    .signers([marketMaker])
+    .rpc();
+  result("MM minted", `${actualMintPairs} pairs (${actualMintPairs} USDC deposited)`);
+  result("Tx", explorerUrl(mintSig));
+
+  // ── Step 11: Place resting orders (liquidity for all 4 trade paths) ────
+
+  step(11, "Place MM resting orders on Phoenix (bids + asks)");
 
   // Place bids
   for (const level of bidLevels) {
     const ix = buildPlaceLimitOrderIx(
-      phoenixMarketAddr!, payer.publicKey, seatPubkey,
+      phoenixMarketAddr!, marketMaker.publicKey, mmSeatPubkey,
       phoenixBaseVault, phoenixQuoteVault,
-      userYesAta, payerUsdcAta,
+      mmYesAta, mmUsdcAta,
       "bid", level.price, level.size * BigInt(BASE_LOTS_PER_TOKEN),
     );
-    const sig = await connection.sendTransaction(new Transaction().add(ix), [payer]);
+    const sig = await connection.sendTransaction(new Transaction().add(ix), [marketMaker]);
     await connection.confirmTransaction(sig, "confirmed");
     result(`Bid @${level.price}`, `${level.size} Yes`);
   }
@@ -862,12 +921,12 @@ async function runSeed() {
   // Place asks
   for (const level of askLevels) {
     const ix = buildPlaceLimitOrderIx(
-      phoenixMarketAddr!, payer.publicKey, seatPubkey,
+      phoenixMarketAddr!, marketMaker.publicKey, mmSeatPubkey,
       phoenixBaseVault, phoenixQuoteVault,
-      userYesAta, payerUsdcAta,
+      mmYesAta, mmUsdcAta,
       "ask", level.price, level.size * BigInt(BASE_LOTS_PER_TOKEN),
     );
-    const sig = await connection.sendTransaction(new Transaction().add(ix), [payer]);
+    const sig = await connection.sendTransaction(new Transaction().add(ix), [marketMaker]);
     await connection.confirmTransaction(sig, "confirmed");
     result(`Ask @${level.price}`, `${level.size} Yes`);
   }
@@ -880,6 +939,8 @@ async function runSeed() {
   const yesBal = (await getAccount(connection, userYesAta)).amount;
   const noBal = (await getAccount(connection, userNoAta)).amount;
   const finalUsdc = (await getAccount(connection, payerUsdcAta)).amount;
+  const mmUsdcFinal = (await getAccount(connection, mmUsdcAta)).amount;
+  const mmYesFinal = (await getAccount(connection, mmYesAta)).amount;
 
   console.log("╔══════════════════════════════════════════════════════════════╗");
   console.log("║  SEED COMPLETE — Open http://localhost:3000 to demo         ║");
@@ -894,9 +955,11 @@ async function runSeed() {
   console.log(`    Close time:  ${isLocal ? "past (reset-ready)" : "+24 hours (demo stays open)"}`);
   console.log("");
   console.log("  Wallet balances:");
-  console.log(`    USDC:  ${formatUsdc(finalUsdc)}`);
-  console.log(`    Yes:   ${formatUsdc(yesBal)}`);
-  console.log(`    No:    ${formatUsdc(noBal)}`);
+  console.log(`    Trader USDC: ${formatUsdc(finalUsdc)}`);
+  console.log(`    Trader Yes:  ${formatUsdc(yesBal)}`);
+  console.log(`    Trader No:   ${formatUsdc(noBal)}`);
+  console.log(`    MM USDC:     ${formatUsdc(mmUsdcFinal)}`);
+  console.log(`    MM Yes:      ${formatUsdc(mmYesFinal)}`);
   console.log(`    Vault: ${formatUsdc(vaultBal)}`);
   console.log("");
   console.log("  Order book (Phoenix):");
@@ -904,7 +967,7 @@ async function runSeed() {
   console.log("    Asks: @52, @55, @58 (for Sell Yes / Buy No fills)");
   console.log("");
   console.log("  Demo flow:");
-  console.log("    1. Import anchor wallet into Phantom (devnet mode)");
+  console.log("    1. Import the trader wallet from ANCHOR_WALLET into Phantom");
   console.log("    2. Open http://localhost:3000");
   console.log("    3. Walk through: Buy Yes -> Sell Yes -> Buy No -> Sell No");
   console.log("    4. Run `pnpm seed --reset` to settle + redeem + clean up");
