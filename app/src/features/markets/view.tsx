@@ -9,6 +9,7 @@ import { formatMicros } from "../../lib/format";
 import { PageShell } from "../../components/page-shell";
 import { WalletButton } from "../../components/wallet-button";
 import { useMarketList } from "./use-market-list";
+import { useMarkets } from "./use-markets";
 
 function formatTradingDay(tradingDay: number): string {
   const value = String(tradingDay);
@@ -105,8 +106,13 @@ interface MarketsLandingPageProps {
 
 export function MarketsLandingPage({ onSelectMarket }: MarketsLandingPageProps) {
   const { connected } = useWallet();
-  const { markets, loading, refresh } = useMarketList();
-  const tradeableMarkets = markets
+  const { markets: publicMarkets } = useMarketList();
+  const {
+    markets: connectedMarkets,
+    loading: connectedLoading,
+    refresh,
+  } = useMarkets();
+  const publicTradeableMarkets = publicMarkets
     .filter((market) => market.phase === "Trading" && market.yesOpenInterest > 0n)
     .sort((a, b) => {
       if (a.tradingDay !== b.tradingDay) return b.tradingDay - a.tradingDay;
@@ -115,7 +121,14 @@ export function MarketsLandingPage({ onSelectMarket }: MarketsLandingPageProps) 
       }
       return a.id.localeCompare(b.id);
     });
-  const featuredMarket = tradeableMarkets[0] ?? null;
+  const connectedTradeableMarkets = connectedMarkets;
+  const featuredMarket =
+    publicTradeableMarkets[0] ?? connectedTradeableMarkets[0] ?? null;
+  const displayMarkets =
+    connectedTradeableMarkets.length > 0
+      ? connectedTradeableMarkets
+      : publicTradeableMarkets;
+  const loading = connected && connectedLoading && displayMarkets.length === 0;
 
   return (
     <PageShell
@@ -169,7 +182,7 @@ export function MarketsLandingPage({ onSelectMarket }: MarketsLandingPageProps) 
             </button>
           </div>
           <MarketDiscoveryList
-            markets={tradeableMarkets}
+            markets={displayMarkets}
             loading={loading}
             onSelect={onSelectMarket}
           />
