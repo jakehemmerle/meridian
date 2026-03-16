@@ -80,7 +80,18 @@ const MIN_USDC_FOR_SEED = 5; // bare minimum USDC to run the seed
 
 // ─── CLI Flags ────────────────────────────────────────────────────────────────
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+
+/** Update USDC mint in .env so the frontend stays in sync with on-chain state. */
+function updateEnvUsdcMint(mintAddress: string): void {
+  const envPath = ".env";
+  if (!existsSync(envPath)) return;
+  let content = readFileSync(envPath, "utf8");
+  // Replace both backend and frontend env vars
+  content = content.replace(/^MERIDIAN_USDC_MINT=.*$/m, `MERIDIAN_USDC_MINT=${mintAddress}`);
+  content = content.replace(/^NEXT_PUBLIC_MERIDIAN_USDC_MINT=.*$/m, `NEXT_PUBLIC_MERIDIAN_USDC_MINT=${mintAddress}`);
+  writeFileSync(envPath, content);
+}
 
 const isReset = process.argv.includes("--reset");
 const isLocalFlag = process.argv.includes("--local");
@@ -512,11 +523,15 @@ async function runSeed() {
         } else {
           result("USDC mint from env", "not found on-chain (stale) — creating new");
           usdcMint = await createMint(connection, payer, payer.publicKey, null, 6);
+          updateEnvUsdcMint(usdcMint.toBase58());
           result("USDC mint created", usdcMint.toBase58());
+          result(".env updated", "MERIDIAN_USDC_MINT + NEXT_PUBLIC_MERIDIAN_USDC_MINT");
         }
       } else {
         usdcMint = await createMint(connection, payer, payer.publicKey, null, 6);
+        updateEnvUsdcMint(usdcMint.toBase58());
         result("USDC mint created", usdcMint.toBase58());
+        result(".env updated", "MERIDIAN_USDC_MINT + NEXT_PUBLIC_MERIDIAN_USDC_MINT");
       }
     } else if (usdcMintStr) {
       usdcMint = new PublicKey(usdcMintStr);
@@ -665,8 +680,11 @@ async function runSeed() {
 
   const phoenixMarketKeypair = Keypair.generate();
 
-  // Far-future close time: market stays in Trading phase for the demo session
-  const closeTimeTs = new anchor.BN(Math.floor(Date.now() / 1000) + 86400); // +24h
+  // On local, set close_time in the past so `pnpm seed:reset` can immediately
+  // close + settle. Trading still works (trade_yes only checks phase, not clock).
+  // On devnet, keep +24h so the market stays open for demo sessions.
+  const nowTs = Math.floor(Date.now() / 1000);
+  const closeTimeTs = new anchor.BN(isLocal ? nowTs - 3601 : nowTs + 86400);
   const settleAfterTs = new anchor.BN(closeTimeTs.toNumber() + 600);
 
   if (!marketExists) {
@@ -873,7 +891,7 @@ async function runSeed() {
   console.log(`    Ticker:      AAPL`);
   console.log(`    Strike:      $${Number(strikePrice) / ONE_USDC}`);
   console.log(`    Trading day: ${tradingDay}`);
-  console.log(`    Close time:  +24 hours (demo stays open)`);
+  console.log(`    Close time:  ${isLocal ? "past (reset-ready)" : "+24 hours (demo stays open)"}`);
   console.log("");
   console.log("  Wallet balances:");
   console.log(`    USDC:  ${formatUsdc(finalUsdc)}`);

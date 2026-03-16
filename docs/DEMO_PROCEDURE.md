@@ -49,7 +49,7 @@ Both modes can run against **devnet** or a **local validator**.
    ```
 6. In a second terminal, deploy the program locally:
    ```bash
-   anchor deploy --provider.cluster localnet --program-keypair keys/meridian-program.json
+   anchor deploy --program-name meridian --provider.cluster localnet --program-keypair keys/meridian-program.json
    ```
 
 > **No SOL airdrop or USDC funding needed locally** — the seed script handles
@@ -87,8 +87,11 @@ Both modes can run against **devnet** or a **local validator**.
 Runs the full market lifecycle in a single script — no browser needed. Good for
 verifying the protocol end-to-end or as a first demo pass.
 
+> **Note**: The CLI demo requires `validateBootstrapEnv` which expects devnet-only
+> env vars (e.g., `MERIDIAN_PROGRAM_KEYPAIR`). Use **devnet** for the CLI demo.
+> For local, use Mode 2 (seed + browser).
+
 ```bash
-pnpm demo          # runs against local (.env)
 pnpm demo:devnet   # runs against devnet (.env.devnet)
 ```
 
