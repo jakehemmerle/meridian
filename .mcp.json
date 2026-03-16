@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "chrome-bridge": {
+      "command": "python3",
+      "args": ["/Users/jake/.claude/chrome/mcp-bridge.py"]
+    }
+  }
+}
