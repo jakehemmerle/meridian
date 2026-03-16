@@ -55,8 +55,8 @@ export const MERIDIAN_PHOENIX_DEFAULTS: Omit<
   CreatePhoenixMarketParams,
   "baseMint" | "quoteMint"
 > = {
-  numBaseLotsPerBaseUnit: 1_000_000n,
-  tickSizeInQuoteLotsPerBaseUnit: 1_000_000n,
+  numBaseLotsPerBaseUnit: 10_000n,
+  tickSizeInQuoteLotsPerBaseUnit: 10_000n,
   numQuoteLotsPerQuoteUnit: 1_000_000n,
   takerFeeBps: 0,
   rawBaseUnitsPerBaseUnit: 1,

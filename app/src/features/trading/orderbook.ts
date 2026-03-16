@@ -1,4 +1,5 @@
 import type { OrderBookLadder } from "@meridian/domain";
+import { deserializeMarketData } from "@ellipsis-labs/phoenix-sdk";
 
 export interface PhoenixOrderBookEntry {
   priceInTicks: number;
@@ -8,89 +9,94 @@ export interface PhoenixOrderBookEntry {
 export interface RawPhoenixBook {
   bids: PhoenixOrderBookEntry[];
   asks: PhoenixOrderBookEntry[];
-  tickSizeInQuoteLotsPerBaseUnit: number;
   baseLotSize: number;
+  quoteLotsPerBaseUnitPerTick: number;
+  quoteLotSize: number;
+  quoteDecimals: number;
+  rawBaseUnitsPerBaseUnit: number;
+  baseLotsPerBaseUnit: number;
 }
 
 /**
  * Deserialize a raw Solana account buffer into a RawPhoenixBook.
  *
- * Phoenix market accounts store the order book as a header followed by
- * packed bid/ask entries. This extracts the tick/lot parameters from the
- * header and walks the bid and ask arrays.
- *
- * Layout (simplified):
- *   [0..8]   discriminator
- *   [8..16]  tickSizeInQuoteLotsPerBaseUnit (u64 LE)
- *   [16..24] baseLotSize (u64 LE)
- *   [24..28] numBids (u32 LE)
- *   [28..32] numAsks (u32 LE)
- *   [32..]   entries: 16 bytes each (u64 priceInTicks, u64 sizeInBaseLots)
+ * Uses the Phoenix SDK's own `deserializeMarketData` to correctly parse
+ * the 576-byte header, Red-Black Tree order book, and trader state.
  */
 export function deserializePhoenixBook(data: Buffer): RawPhoenixBook {
-  if (data.length < 32) {
-    throw new Error(`Phoenix account data too short: ${data.length} bytes`);
-  }
-
-  const tickSize = Number(data.readBigUInt64LE(8));
-  const baseLotSize = Number(data.readBigUInt64LE(16));
-  const numBids = data.readUInt32LE(24);
-  const numAsks = data.readUInt32LE(28);
-
-  const entrySize = 16;
-  const entriesStart = 32;
-  const expectedLen = entriesStart + (numBids + numAsks) * entrySize;
-
-  if (data.length < expectedLen) {
-    throw new Error(
-      `Phoenix account data truncated: got ${data.length}, need ${expectedLen}`,
-    );
-  }
+  const marketData = deserializeMarketData(data);
 
   const bids: PhoenixOrderBookEntry[] = [];
-  for (let i = 0; i < numBids; i++) {
-    const off = entriesStart + i * entrySize;
+  for (const [orderId, restingOrder] of marketData.bids) {
     bids.push({
-      priceInTicks: Number(data.readBigUInt64LE(off)),
-      sizeInBaseLots: Number(data.readBigUInt64LE(off + 8)),
+      priceInTicks: Number(orderId.priceInTicks),
+      sizeInBaseLots: Number(restingOrder.numBaseLots),
     });
   }
 
   const asks: PhoenixOrderBookEntry[] = [];
-  for (let i = 0; i < numAsks; i++) {
-    const off = entriesStart + (numBids + i) * entrySize;
+  for (const [orderId, restingOrder] of marketData.asks) {
     asks.push({
-      priceInTicks: Number(data.readBigUInt64LE(off)),
-      sizeInBaseLots: Number(data.readBigUInt64LE(off + 8)),
+      priceInTicks: Number(orderId.priceInTicks),
+      sizeInBaseLots: Number(restingOrder.numBaseLots),
     });
   }
 
   return {
     bids,
     asks,
-    tickSizeInQuoteLotsPerBaseUnit: tickSize,
-    baseLotSize,
+    baseLotSize: Number(marketData.header.baseLotSize),
+    quoteLotsPerBaseUnitPerTick: marketData.quoteLotsPerBaseUnitPerTick,
+    quoteLotSize: Number(marketData.header.quoteLotSize),
+    quoteDecimals: marketData.header.quoteParams.decimals,
+    rawBaseUnitsPerBaseUnit: marketData.header.rawBaseUnitsPerBaseUnit,
+    baseLotsPerBaseUnit: marketData.baseLotsPerBaseUnit,
   };
 }
 
 /**
  * Parse raw Phoenix order book data into a normalized OrderBookLadder.
- * Converts Phoenix tick/lot units to USDC micros.
+ *
+ * Converts Phoenix tick/lot units to USDC micros using the same formula
+ * as the SDK's `levelToUiLevel`:
+ *   price = priceInTicks * quoteLotsPerBaseUnitPerTick * quoteLotSize
+ *           / (10^quoteDecimals * rawBaseUnitsPerBaseUnit)
+ *
+ * For Meridian's binary options (1 token = $1.00 USDC), this yields
+ * a price in [0..1] range scaled to micros (e.g. 520000 = $0.52).
  */
 export function parsePhoenixOrderBook(raw: RawPhoenixBook): OrderBookLadder {
-  const { tickSizeInQuoteLotsPerBaseUnit, baseLotSize } = raw;
+  const {
+    quoteLotsPerBaseUnitPerTick,
+    quoteLotSize,
+    rawBaseUnitsPerBaseUnit,
+    baseLotsPerBaseUnit,
+  } = raw;
+
+  function ticksToMicros(priceInTicks: number): number {
+    // ticks * quoteLotsPerTick * quoteLotSize gives quote atoms per base unit.
+    // For USDC (6 decimals), quote atoms ARE micros — no extra scaling needed.
+    return Math.round(
+      (priceInTicks * quoteLotsPerBaseUnitPerTick * quoteLotSize) /
+        rawBaseUnitsPerBaseUnit,
+    );
+  }
+
+  function lotsToTokens(sizeInBaseLots: number): number {
+    return (sizeInBaseLots * rawBaseUnitsPerBaseUnit) / baseLotsPerBaseUnit;
+  }
 
   const bids = raw.bids
     .map((entry) => ({
-      priceMicros: entry.priceInTicks * tickSizeInQuoteLotsPerBaseUnit,
-      sizeLots: Math.floor(entry.sizeInBaseLots / baseLotSize),
+      priceMicros: ticksToMicros(entry.priceInTicks),
+      sizeLots: lotsToTokens(entry.sizeInBaseLots),
     }))
     .sort((a, b) => b.priceMicros - a.priceMicros);
 
   const asks = raw.asks
     .map((entry) => ({
-      priceMicros: entry.priceInTicks * tickSizeInQuoteLotsPerBaseUnit,
-      sizeLots: Math.floor(entry.sizeInBaseLots / baseLotSize),
+      priceMicros: ticksToMicros(entry.priceInTicks),
+      sizeLots: lotsToTokens(entry.sizeInBaseLots),
     }))
     .sort((a, b) => a.priceMicros - b.priceMicros);
 

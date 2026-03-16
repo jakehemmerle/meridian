@@ -7,45 +7,29 @@ import {
 } from "./phoenix-subscription";
 import { createOrderBookProcessor, type OrderBookState } from "./use-orderbook";
 import type { RawPhoenixBook } from "./orderbook";
-import { deserializePhoenixBook } from "./orderbook";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const SAMPLE_RAW: RawPhoenixBook = {
+function mockBook(overrides: Partial<RawPhoenixBook> = {}): RawPhoenixBook {
+  return {
+    bids: [],
+    asks: [],
+    baseLotSize: 1,
+    quoteLotsPerBaseUnitPerTick: 1_000,
+    quoteLotSize: 1,
+    quoteDecimals: 6,
+    rawBaseUnitsPerBaseUnit: 1,
+    baseLotsPerBaseUnit: 1_000_000,
+    ...overrides,
+  };
+}
+
+const SAMPLE_RAW = mockBook({
   bids: [{ priceInTicks: 700, sizeInBaseLots: 10_000_000 }],
   asks: [{ priceInTicks: 800, sizeInBaseLots: 5_000_000 }],
-  tickSizeInQuoteLotsPerBaseUnit: 1000,
-  baseLotSize: 1_000_000,
-};
-
-/** Build a Buffer that `deserializePhoenixBook` can parse. */
-function encodePhoenixBook(book: RawPhoenixBook): Buffer {
-  const entrySize = 16;
-  const headerSize = 32;
-  const totalEntries = book.bids.length + book.asks.length;
-  const buf = Buffer.alloc(headerSize + totalEntries * entrySize);
-
-  // discriminator (8 bytes) — zero is fine for tests
-  buf.writeBigUInt64LE(BigInt(book.tickSizeInQuoteLotsPerBaseUnit), 8);
-  buf.writeBigUInt64LE(BigInt(book.baseLotSize), 16);
-  buf.writeUInt32LE(book.bids.length, 24);
-  buf.writeUInt32LE(book.asks.length, 28);
-
-  let off = headerSize;
-  for (const bid of book.bids) {
-    buf.writeBigUInt64LE(BigInt(bid.priceInTicks), off);
-    buf.writeBigUInt64LE(BigInt(bid.sizeInBaseLots), off + 8);
-    off += entrySize;
-  }
-  for (const ask of book.asks) {
-    buf.writeBigUInt64LE(BigInt(ask.priceInTicks), off);
-    buf.writeBigUInt64LE(BigInt(ask.sizeInBaseLots), off + 8);
-    off += entrySize;
-  }
-  return buf;
-}
+});
 
 type AccountChangeCallback = (
   accountInfo: AccountInfo<Buffer>,
@@ -95,50 +79,10 @@ function createMockConnection() {
 
 const VALID_MARKET_ADDRESS = "11111111111111111111111111111111";
 
-// ---------------------------------------------------------------------------
-// deserializePhoenixBook
-// ---------------------------------------------------------------------------
-
-describe("deserializePhoenixBook", () => {
-  it("round-trips a RawPhoenixBook through encode/deserialize", () => {
-    const buf = encodePhoenixBook(SAMPLE_RAW);
-    const result = deserializePhoenixBook(buf);
-
-    expect(result.tickSizeInQuoteLotsPerBaseUnit).toBe(1000);
-    expect(result.baseLotSize).toBe(1_000_000);
-    expect(result.bids).toHaveLength(1);
-    expect(result.bids[0].priceInTicks).toBe(700);
-    expect(result.bids[0].sizeInBaseLots).toBe(10_000_000);
-    expect(result.asks).toHaveLength(1);
-    expect(result.asks[0].priceInTicks).toBe(800);
-    expect(result.asks[0].sizeInBaseLots).toBe(5_000_000);
-  });
-
-  it("throws on a buffer that is too short", () => {
-    expect(() => deserializePhoenixBook(Buffer.alloc(10))).toThrow(
-      "too short",
-    );
-  });
-
-  it("throws on a truncated buffer", () => {
-    const buf = encodePhoenixBook(SAMPLE_RAW);
-    // Chop off the last few bytes so entry data is incomplete
-    const truncated = buf.subarray(0, 40);
-    expect(() => deserializePhoenixBook(truncated)).toThrow("truncated");
-  });
-
-  it("handles an empty book", () => {
-    const empty: RawPhoenixBook = {
-      bids: [],
-      asks: [],
-      tickSizeInQuoteLotsPerBaseUnit: 1000,
-      baseLotSize: 1_000_000,
-    };
-    const result = deserializePhoenixBook(encodePhoenixBook(empty));
-    expect(result.bids).toHaveLength(0);
-    expect(result.asks).toHaveLength(0);
-  });
-});
+/** A mock deserializer that returns SAMPLE_RAW regardless of input. */
+function stubDeserialize(): PhoenixDeserializer {
+  return vi.fn((_data: Buffer) => SAMPLE_RAW);
+}
 
 // ---------------------------------------------------------------------------
 // createPhoenixSubscription
@@ -150,7 +94,7 @@ describe("createPhoenixSubscription", () => {
 
   beforeEach(() => {
     mock = createMockConnection();
-    deserialize = vi.fn((data: Buffer) => deserializePhoenixBook(data));
+    deserialize = stubDeserialize();
   });
 
   it("subscribes to account changes and triggers onUpdate", () => {
@@ -166,8 +110,8 @@ describe("createPhoenixSubscription", () => {
 
     expect(mock.connection.onAccountChange).toHaveBeenCalledTimes(1);
 
-    // Simulate an account change
-    mock.emitAccountChange(encodePhoenixBook(SAMPLE_RAW));
+    // Simulate an account change (buffer content doesn't matter — mock deserializer)
+    mock.emitAccountChange(Buffer.alloc(32));
 
     expect(deserialize).toHaveBeenCalledTimes(1);
     expect(onUpdate).toHaveBeenCalledTimes(1);
@@ -225,14 +169,9 @@ describe("createPhoenixSubscription", () => {
       { onUpdate, onError: vi.fn(), onStatusChange: vi.fn() },
     );
 
-    // Capture the callback before unsubscribing
-    const subId = (mock.connection.onAccountChange as ReturnType<typeof vi.fn>).mock
-      .results[0].value;
-
     sub.unsubscribe();
 
     // Even if the callback somehow fires, active=false prevents delivery
-    // (The listener was removed, so this is a belt-and-suspenders check)
     expect(onUpdate).not.toHaveBeenCalled();
   });
 });
@@ -251,7 +190,7 @@ describe("subscription → processor integration", () => {
     createPhoenixSubscription(
       mock.connection,
       VALID_MARKET_ADDRESS,
-      deserializePhoenixBook,
+      stubDeserialize(),
       {
         onUpdate: (book) => processor.processUpdate(book),
         onError: () => processor.setDisconnected(),
@@ -259,7 +198,7 @@ describe("subscription → processor integration", () => {
       },
     );
 
-    mock.emitAccountChange(encodePhoenixBook(SAMPLE_RAW));
+    mock.emitAccountChange(Buffer.alloc(32));
 
     expect(states).toHaveLength(1);
     expect(states[0].status).toBe("connected");
@@ -302,11 +241,10 @@ describe("subscription → processor integration", () => {
     const states: OrderBookState[] = [];
     processor.setOnChange((s) => states.push(s));
 
-    // First use a failing deserializer to simulate disconnect
     let shouldFail = true;
-    const toggleDeserialize: PhoenixDeserializer = (data) => {
+    const toggleDeserialize: PhoenixDeserializer = (_data) => {
       if (shouldFail) throw new Error("transient failure");
-      return deserializePhoenixBook(data);
+      return SAMPLE_RAW;
     };
 
     createPhoenixSubscription(
@@ -326,7 +264,7 @@ describe("subscription → processor integration", () => {
 
     // "Reconnection" — network recovers, valid data arrives
     shouldFail = false;
-    mock.emitAccountChange(encodePhoenixBook(SAMPLE_RAW));
+    mock.emitAccountChange(Buffer.alloc(32));
     expect(processor.getState().status).toBe("connected");
     expect(processor.getState().yesLadder).not.toBeNull();
   });
@@ -342,7 +280,7 @@ describe("subscription → processor integration", () => {
       const sub = createPhoenixSubscription(
         mock.connection,
         VALID_MARKET_ADDRESS,
-        deserializePhoenixBook,
+        stubDeserialize(),
         {
           onUpdate: (book) => processor.processUpdate(book),
           onError: () => processor.setDisconnected(),
@@ -357,7 +295,7 @@ describe("subscription → processor integration", () => {
       });
 
       // Feed one update
-      mock.emitAccountChange(encodePhoenixBook(SAMPLE_RAW));
+      mock.emitAccountChange(Buffer.alloc(32));
       expect(processor.getState().status).toBe("connected");
 
       // Cleanup

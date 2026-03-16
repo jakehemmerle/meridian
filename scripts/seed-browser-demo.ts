@@ -50,7 +50,11 @@ import {
   PHOENIX_MARKET_STATUS,
   getMarketHeader,
   requestSeat,
+  type CreatePhoenixMarketParams,
 } from "../automation/src/clients/phoenix.js";
+
+/** Base lots per whole token — must match the Phoenix market config */
+const BASE_LOTS_PER_TOKEN = Number(MERIDIAN_PHOENIX_DEFAULTS.numBaseLotsPerBaseUnit);
 import { buildCloseMarketIx } from "../automation/src/clients/meridian.js";
 import { loadKeypair } from "../automation/src/clients/keypair.js";
 import { formatUsdc, explorerUrl, ONE_USDC } from "../automation/src/clients/format.js";
@@ -812,13 +816,25 @@ async function runSeed() {
     { price: 58n, size: BigInt(perLevel) },
   ];
 
+  // Bids require USDC on the quote side. After mintPair, all USDC is in the
+  // vault, so mint extra USDC to fund the bid liquidity (local only).
+  const totalBidUsdc = bidLevels.reduce((sum, l) => sum + Number(l.size), 0);
+  if (isLocal) {
+    try {
+      await mintTo(connection, payer, usdcMint, payerUsdcAta, payer.publicKey, BigInt(totalBidUsdc * ONE_USDC));
+      result("Extra USDC for bids", `${totalBidUsdc} USDC`);
+    } catch {
+      result("Extra USDC", "skipped (not mint authority)");
+    }
+  }
+
   // Place bids
   for (const level of bidLevels) {
     const ix = buildPlaceLimitOrderIx(
       phoenixMarketAddr!, payer.publicKey, seatPubkey,
       phoenixBaseVault, phoenixQuoteVault,
       userYesAta, payerUsdcAta,
-      "bid", level.price, level.size * BigInt(ONE_USDC),
+      "bid", level.price, level.size * BigInt(BASE_LOTS_PER_TOKEN),
     );
     const sig = await connection.sendTransaction(new Transaction().add(ix), [payer]);
     await connection.confirmTransaction(sig, "confirmed");
@@ -831,7 +847,7 @@ async function runSeed() {
       phoenixMarketAddr!, payer.publicKey, seatPubkey,
       phoenixBaseVault, phoenixQuoteVault,
       userYesAta, payerUsdcAta,
-      "ask", level.price, level.size * BigInt(ONE_USDC),
+      "ask", level.price, level.size * BigInt(BASE_LOTS_PER_TOKEN),
     );
     const sig = await connection.sendTransaction(new Transaction().add(ix), [payer]);
     await connection.confirmTransaction(sig, "confirmed");

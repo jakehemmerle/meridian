@@ -20,7 +20,8 @@ import {
 import type { MarketSummary } from "../markets/model";
 import { type TradeIntent, getIntentInstructionPlan } from "./model";
 
-const ONE_TOKEN = 1_000_000;
+// Must match Phoenix numBaseLotsPerBaseUnit (set in MERIDIAN_PHOENIX_DEFAULTS)
+const PHOENIX_BASE_LOTS_PER_TOKEN = 10_000;
 
 export function useTrade(market: MarketSummary | null) {
   const program = useProgram();
@@ -123,7 +124,7 @@ export function useTrade(market: MarketSummary | null) {
       const ix = await (program.methods as any)
         .tradeYes({
           side: side === "Buy" ? { buy: {} } : { sell: {} },
-          numBaseLots: new BN(lots * ONE_TOKEN),
+          numBaseLots: new BN(lots * PHOENIX_BASE_LOTS_PER_TOKEN),
           priceInTicks,
           lastValidUnixTimestampInSeconds: null,
         })

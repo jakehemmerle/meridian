@@ -8,9 +8,32 @@ import {
   type OrderBookState,
 } from "./use-orderbook";
 
+/**
+ * Build a mock RawPhoenixBook with test-friendly parameters:
+ *   - USDC quote (6 decimals, quoteLotSize=1)
+ *   - Yes token base (baseLotSize=1, rawBaseUnitsPerBaseUnit=1)
+ *   - quoteLotsPerBaseUnitPerTick=1000
+ *
+ * Price formula: priceMicros = ticks * quoteLotsPerTick * quoteLotSize / rawBaseUnitsPerBaseUnit
+ * With these params: tick 500 = 500 * 1000 = 500_000 micros ($0.50)
+ */
+function mockBook(overrides: Partial<RawPhoenixBook> = {}): RawPhoenixBook {
+  return {
+    bids: [],
+    asks: [],
+    baseLotSize: 1,
+    quoteLotsPerBaseUnitPerTick: 1000,
+    quoteLotSize: 1,
+    quoteDecimals: 6,
+    rawBaseUnitsPerBaseUnit: 1,
+    baseLotsPerBaseUnit: 1_000_000,
+    ...overrides,
+  };
+}
+
 describe("parsePhoenixOrderBook", () => {
   it("parses mock Phoenix bid/ask entries into OrderBookLadder", () => {
-    const raw: RawPhoenixBook = {
+    const raw = mockBook({
       bids: [
         { priceInTicks: 700, sizeInBaseLots: 10_000_000 },
         { priceInTicks: 600, sizeInBaseLots: 20_000_000 },
@@ -19,9 +42,7 @@ describe("parsePhoenixOrderBook", () => {
         { priceInTicks: 800, sizeInBaseLots: 5_000_000 },
         { priceInTicks: 900, sizeInBaseLots: 15_000_000 },
       ],
-      tickSizeInQuoteLotsPerBaseUnit: 1000,
-      baseLotSize: 1_000_000,
-    };
+    });
 
     const ladder = parsePhoenixOrderBook(raw);
 
@@ -35,43 +56,32 @@ describe("parsePhoenixOrderBook", () => {
   });
 
   it("returns empty ladder for empty book", () => {
-    const raw: RawPhoenixBook = {
-      bids: [],
-      asks: [],
-      tickSizeInQuoteLotsPerBaseUnit: 1000,
-      baseLotSize: 1_000_000,
-    };
-
+    const raw = mockBook();
     const ladder = parsePhoenixOrderBook(raw);
     expect(ladder.bids).toHaveLength(0);
     expect(ladder.asks).toHaveLength(0);
   });
 
   it("converts Phoenix tick/lot units to USDC micros correctly", () => {
-    const raw: RawPhoenixBook = {
+    const raw = mockBook({
       bids: [{ priceInTicks: 500, sizeInBaseLots: 3_000_000 }],
-      asks: [],
-      tickSizeInQuoteLotsPerBaseUnit: 1000,
-      baseLotSize: 1_000_000,
-    };
+    });
 
     const ladder = parsePhoenixOrderBook(raw);
 
-    // 500 ticks * 1000 quote lots/tick = 500_000 USDC micros ($0.50)
+    // 500 ticks * 1000 quoteLotsPerTick * 1 quoteLotSize / 1 rawBaseUnitsPerBaseUnit = 500_000 micros ($0.50)
     expect(ladder.bids[0].priceMicros).toBe(500_000);
-    // 3_000_000 base lots / 1_000_000 lot size = 3 lots
+    // 3_000_000 baseLots * 1 rawBaseUnitsPerBaseUnit / 1_000_000 baseLotsPerBaseUnit = 3 tokens
     expect(ladder.bids[0].sizeLots).toBe(3);
   });
 });
 
 // --- Order book processor tests (extracted hook logic) ---
 
-const SAMPLE_RAW: RawPhoenixBook = {
+const SAMPLE_RAW = mockBook({
   bids: [{ priceInTicks: 700, sizeInBaseLots: 10_000_000 }],
   asks: [{ priceInTicks: 800, sizeInBaseLots: 5_000_000 }],
-  tickSizeInQuoteLotsPerBaseUnit: 1000,
-  baseLotSize: 1_000_000,
-};
+});
 
 describe("createOrderBookProcessor", () => {
   it("initial state: ladder is null, status is connecting", () => {
