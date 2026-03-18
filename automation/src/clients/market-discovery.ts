@@ -9,6 +9,7 @@ export interface DiscoveredMarket {
   strikePrice: BN;
   tradingDay: number;
   ticker: number;
+  closeTimeTs: number;
   yesOpenInterest: BN;
   noOpenInterest: BN;
 }
@@ -47,6 +48,7 @@ export async function discoverMarkets(program: Program): Promise<DiscoveredMarke
     strikePrice: acc.account.strikePrice,
     tradingDay: acc.account.tradingDay,
     ticker: tickerToNumber(acc.account.ticker),
+    closeTimeTs: acc.account.closeTimeTs?.toNumber?.() ?? acc.account.closeTimeTs ?? 0,
     yesOpenInterest: acc.account.yesOpenInterest,
     noOpenInterest: acc.account.noOpenInterest,
   }));

@@ -29,7 +29,12 @@
     "seed:reset": "dotenv -e .env -- pnpm exec tsx scripts/seed-browser-demo.ts --local --reset",
     "seed:devnet": "dotenv -e .env.devnet -- pnpm exec tsx scripts/seed-browser-demo.ts",
     "seed:devnet:reset": "dotenv -e .env.devnet -- pnpm exec tsx scripts/seed-browser-demo.ts --reset",
-    "deploy:web": "bash scripts/deploy-web.sh"
+    "deploy:web": "bash scripts/deploy-web.sh",
+    "automation:morning": "dotenv -e .env -- pnpm exec tsx automation/src/cli.ts morning",
+    "automation:afternoon": "dotenv -e .env -- pnpm exec tsx automation/src/cli.ts afternoon",
+    "automation:close": "dotenv -e .env -- pnpm exec tsx automation/src/cli.ts close",
+    "automation:settle": "dotenv -e .env -- pnpm exec tsx automation/src/cli.ts settle",
+    "automation:bootstrap": "dotenv -e .env -- pnpm exec tsx automation/src/cli.ts bootstrap"
   },
   "devDependencies": {
     "@coral-xyz/anchor": "0.32.1",
