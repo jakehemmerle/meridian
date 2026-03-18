@@ -29,6 +29,7 @@
     "seed:reset": "dotenv -e .env -- pnpm exec tsx scripts/seed-browser-demo.ts --local --reset",
     "seed:devnet": "dotenv -e .env.devnet -- pnpm exec tsx scripts/seed-browser-demo.ts",
     "seed:devnet:reset": "dotenv -e .env.devnet -- pnpm exec tsx scripts/seed-browser-demo.ts --reset",
+    "setup:devnet": "dotenv -e .env.devnet -- pnpm exec tsx scripts/init.ts",
     "deploy:web": "bash scripts/deploy-web.sh",
     "automation:morning": "dotenv -e .env -- pnpm exec tsx automation/src/cli.ts morning",
     "automation:afternoon": "dotenv -e .env -- pnpm exec tsx automation/src/cli.ts afternoon",

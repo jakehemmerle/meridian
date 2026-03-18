@@ -9,7 +9,7 @@
  */
 
 import * as anchor from "@coral-xyz/anchor";
-import { createMint, mintTo, getOrCreateAssociatedTokenAccount, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { createMint, getAssociatedTokenAddress, getAccount, mintTo, getOrCreateAssociatedTokenAccount, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
 import { readFileSync } from "node:fs";
 
@@ -95,9 +95,28 @@ async function main() {
     await mintTo(connection, payer, usdcMint, payerAta.address, payer.publicKey, 10_000_000_000);
     console.log("  ✓ Minted 10,000 USDC to payer");
     console.log("  ✓ Mint stored in on-chain config (no .env update needed)");
-  } else {
+  } else if (!usdcMintStr) {
     console.error("  ✗ MERIDIAN_USDC_MINT is empty and not on local validator — set it in your .env");
     process.exit(1);
+  }
+
+  // ── Step 3b: Check USDC balance ────────────────────────────────────────────
+
+  if (!isLocal) {
+    try {
+      const payerUsdcAta = await getAssociatedTokenAddress(usdcMint, payer.publicKey);
+      const usdcAccount = await getAccount(connection, payerUsdcAta);
+      const usdcBalance = Number(usdcAccount.amount) / 1_000_000;
+      if (usdcBalance < 10) {
+        console.log(`  ⚠ USDC balance: ${usdcBalance} (need ≥10 for demo)`);
+        console.log(`  → Get devnet USDC: https://faucet.circle.com → Solana Devnet → ${payer.publicKey.toBase58()}`);
+      } else {
+        console.log(`  ✓ USDC balance: ${usdcBalance}`);
+      }
+    } catch {
+      console.log(`  ⚠ No USDC token account found`);
+      console.log(`  → Get devnet USDC: https://faucet.circle.com → Solana Devnet → ${payer.publicKey.toBase58()}`);
+    }
   }
 
   // ── Step 4: Set up Anchor provider & program ────────────────────────────────
@@ -175,6 +194,24 @@ async function main() {
   console.log(`  operationsAuthority:      ${cfg.operationsAuthority.toBase58()}`);
   console.log(`  usdcMint:                 ${cfg.usdcMint.toBase58()}`);
   console.log(`  pythReceiverProgram:      ${cfg.pythReceiverProgram.toBase58()}`);
+
+  // ── Summary ─────────────────────────────────────────────────────────────────
+
+  console.log("\n[6] Summary:");
+  console.log(`  Config PDA:     ${configPda.toBase58()}`);
+  console.log(`  Admin:          ${cfg.adminAuthority.toBase58()}`);
+  console.log(`  Program ID:     ${programId.toBase58()}`);
+  console.log(`  USDC Mint:      ${cfg.usdcMint.toBase58()}`);
+  console.log(`  SOL Balance:    ${balance / LAMPORTS_PER_SOL} SOL`);
+  if (!isLocal) {
+    try {
+      const payerUsdcAta = await getAssociatedTokenAddress(usdcMint, payer.publicKey);
+      const usdcAccount = await getAccount(connection, payerUsdcAta);
+      console.log(`  USDC Balance:   ${Number(usdcAccount.amount) / 1_000_000}`);
+    } catch {
+      console.log(`  USDC Balance:   0`);
+    }
+  }
 
   console.log("\n=== Done ===\n");
 }
