@@ -3,9 +3,10 @@
   "issue": "me-dbq",
   "files": [
     "app/src",
-    "app/package.json"
+    "app/package.json",
+    "pnpm-lock.yaml"
   ],
-  "claimed_at": "2026-03-19T16:21:45Z",
-  "expires_at": "2026-03-19T16:31:45Z",
+  "claimed_at": "2026-03-19T16:40:29Z",
+  "expires_at": "2026-03-19T16:42:29Z",
   "reason": "me-dbq: Radix UI frontend redesign"
 }
