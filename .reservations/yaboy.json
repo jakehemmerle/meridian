@@ -6,6 +6,7 @@
     "app/src/components/nav-bar.tsx",
     "app/src/components/wallet-button.tsx",
     "app/src/features/trading/trading-screen.tsx",
+    "app/src/features/trading/trading-screen.test.tsx",
     "app/src/app/trade/[market]/page.tsx"
   ],
   "claimed_at": "2026-03-19T18:21:24Z",
