@@ -13,6 +13,8 @@
   "dependencies": {
     "@coral-xyz/anchor": "0.32.1",
     "@meridian/domain": "workspace:*",
+    "@radix-ui/react-hover-card": "^1.1.15",
+    "@radix-ui/react-toggle-group": "^1.1.11",
     "@solana/spl-token": "0.4.13",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-phantom": "^0.9.28",

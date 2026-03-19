@@ -445,14 +445,7 @@ code {
   font-size: 1rem;
 }
 
-.trade-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-  gap: 20px;
-}
-
 .ticket-panel,
-.book-panel,
 .redeem-section {
   padding: 28px;
   border: 1px solid var(--line);
@@ -515,50 +508,139 @@ code {
   transform: translateY(-1px);
 }
 
-.segment.active {
+.segment[data-state="on"] {
   background: rgba(19, 34, 48, 0.9);
   color: #fff;
 }
 
-.segment.yes.active {
+.segment.yes[data-state="on"] {
   background: rgba(47, 111, 106, 0.92);
 }
 
-.segment.no.active {
+.segment.no[data-state="on"] {
   background: rgba(182, 90, 49, 0.92);
 }
 
-.quote-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin: 22px 0 18px;
-}
+/* ── Spread Bar ─────────────────────────────────────────────────────── */
 
-.quote-card {
-  padding: 14px 16px;
+.spread-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  margin: 18px 0 14px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(4px);
 }
 
-.quote-card span {
+.spread-bar-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+}
+
+.spread-bar-value {
   display: block;
-  margin-bottom: 8px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.spread-bar-label {
+  display: block;
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-.quote-card strong {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 1.02rem;
+.spread-bar-bid .spread-bar-value { color: var(--teal); }
+.spread-bar-ask .spread-bar-value { color: var(--ember); }
+.spread-bar-spread .spread-bar-value { color: var(--muted); }
+
+.spread-bar-spread {
+  cursor: pointer;
+  transition: background 120ms ease;
+  padding: 6px 12px;
+  border-radius: 12px;
 }
 
-.quote-card.highlight {
-  background: rgba(47, 111, 106, 0.08);
+.spread-bar-spread:hover {
+  background: rgba(47, 111, 106, 0.06);
+}
+
+/* ── Depth HoverCard Popover ────────────────────────────────────────── */
+
+.depth-popover {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+  animation: depth-fade-in 150ms ease;
+  min-width: 200px;
+}
+
+.depth-popover-title {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.depth-popover-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.depth-arrow {
+  fill: rgba(255, 255, 255, 0.92);
+}
+
+@keyframes depth-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Cost Line ──────────────────────────────────────────────────────── */
+
+.cost-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 18px;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.cost-line-label {
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cost-line-calc {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.88rem;
+}
+
+.cost-line-total {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 1.05rem;
+  color: var(--ink);
 }
 
 .quantity-block {
@@ -612,7 +694,7 @@ code {
   font-weight: 600;
 }
 
-.shortcut.active {
+.shortcut[data-state="on"] {
   background: rgba(19, 34, 48, 0.9);
   color: #fff;
 }
@@ -649,90 +731,6 @@ code {
   cursor: not-allowed;
 }
 
-.side-quote-row,
-.order-book {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.side-quote-card,
-.ladder {
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.62);
-}
-
-.side-quote-card.active,
-.ladder.active {
-  border-color: rgba(47, 111, 106, 0.28);
-  box-shadow: inset 0 0 0 1px rgba(47, 111, 106, 0.1);
-}
-
-.side-quote-head,
-.ladder-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.side-quote-head h3,
-.ladder-head h3 {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.side-quote-active {
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: rgba(47, 111, 106, 0.12);
-  color: var(--teal);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.side-quote-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
-}
-
-.side-quote-grid dt {
-  margin-bottom: 6px;
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.side-quote-grid dd,
-.ladder-topline span {
-  margin: 0;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 0.95rem;
-}
-
-.ladder-topline {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.ladder-empty {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.6;
-}
 
 .ob-table {
   width: 100%;
@@ -908,10 +906,7 @@ button {
   .envGrid,
   .heroSummary,
   .trade-meta-grid,
-  .market-card-list,
-  .quote-strip,
-  .side-quote-row,
-  .order-book {
+  .market-card-list {
     grid-template-columns: 1fr;
   }
 
@@ -921,13 +916,8 @@ button {
 
   .trade-hero,
   .ticket-panel,
-  .book-panel,
   .redeem-section {
     padding: 24px;
-  }
-
-  .trade-layout {
-    grid-template-columns: 1fr;
   }
 
   .trade-question {

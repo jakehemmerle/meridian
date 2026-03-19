@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import * as HoverCard from "@radix-ui/react-hover-card";
+import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import type { OrderBookLadder } from "@meridian/domain";
 import {
   type TradeIntent,
@@ -116,87 +118,77 @@ function formatSpread(
   return formatPrice(bestAskMicros - bestBidMicros);
 }
 
-function SideQuoteCard({
-  label,
+function SpreadBar({
   ladder,
-  active,
+  label,
 }: {
-  label: string;
   ladder: OrderBookLadder | null;
-  active: boolean;
+  label: string;
 }) {
   const bestBid = ladder?.bids[0]?.priceMicros ?? null;
   const bestAsk = ladder?.asks[0]?.priceMicros ?? null;
-
-  return (
-    <div className={`side-quote-card${active ? " active" : ""}`}>
-      <div className="side-quote-head">
-        <h3>{label}</h3>
-        {active && <span className="side-quote-active">Selected</span>}
-      </div>
-      <dl className="side-quote-grid">
-        <div>
-          <dt>Best bid</dt>
-          <dd>{bestBid == null ? "No bid" : formatPrice(bestBid)}</dd>
-        </div>
-        <div>
-          <dt>Best ask</dt>
-          <dd>{bestAsk == null ? "No ask" : formatPrice(bestAsk)}</dd>
-        </div>
-      </dl>
-    </div>
-  );
-}
-
-function LadderView({
-  label,
-  ladder,
-  active,
-}: {
-  label: string;
-  ladder: OrderBookLadder | null;
-  active: boolean;
-}) {
   const rows = ladder ? mergeLevels(ladder).slice(0, 4) : [];
-  const bestBid = ladder?.bids[0]?.priceMicros ?? null;
-  const bestAsk = ladder?.asks[0]?.priceMicros ?? null;
 
   return (
-    <div className={`ladder${active ? " active" : ""}`}>
-      <div className="ladder-head">
-        <h3>{label}</h3>
-        <div className="ladder-topline">
-          <span>{bestBid == null ? "No bid" : `Bid ${formatPrice(bestBid)}`}</span>
-          <span>{bestAsk == null ? "No ask" : `Ask ${formatPrice(bestAsk)}`}</span>
-        </div>
+    <div className="spread-bar">
+      <div className="spread-bar-cell spread-bar-bid">
+        <span className="spread-bar-value">
+          {bestBid == null ? "—" : formatPrice(bestBid)}
+        </span>
+        <span className="spread-bar-label">Best Bid</span>
       </div>
-      {rows.length === 0 ? (
-        <p className="ladder-empty">
-          {ladder == null ? "Loading live quotes..." : "No resting orders yet."}
-        </p>
-      ) : (
-        <table className="ob-table">
-          <thead>
-            <tr>
-              <th>Bid</th>
-              <th>Price</th>
-              <th>Ask</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i}>
-                <td className="bid-cell">{row.bidSize ?? ""}</td>
-                <td className="price-cell">{formatPrice(row.price)}</td>
-                <td className="ask-cell">{row.askSize ?? ""}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+
+      <HoverCard.Root openDelay={400} closeDelay={200}>
+        <HoverCard.Trigger asChild>
+          <button type="button" className="spread-bar-cell spread-bar-spread">
+            <span className="spread-bar-value">
+              {formatSpread(bestBid, bestAsk)}
+            </span>
+            <span className="spread-bar-label">Spread</span>
+          </button>
+        </HoverCard.Trigger>
+        <HoverCard.Portal>
+          <HoverCard.Content className="depth-popover" sideOffset={8}>
+            <p className="depth-popover-title">{label} Depth</p>
+            {rows.length === 0 ? (
+              <p className="depth-popover-empty">
+                {ladder == null ? "Loading..." : "No resting orders"}
+              </p>
+            ) : (
+              <table className="ob-table">
+                <thead>
+                  <tr>
+                    <th>Bid</th>
+                    <th>Price</th>
+                    <th>Ask</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <tr key={i}>
+                      <td className="bid-cell">{row.bidSize ?? ""}</td>
+                      <td className="price-cell">{formatPrice(row.price)}</td>
+                      <td className="ask-cell">{row.askSize ?? ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <HoverCard.Arrow className="depth-arrow" />
+          </HoverCard.Content>
+        </HoverCard.Portal>
+      </HoverCard.Root>
+
+      <div className="spread-bar-cell spread-bar-ask">
+        <span className="spread-bar-value">
+          {bestAsk == null ? "—" : formatPrice(bestAsk)}
+        </span>
+        <span className="spread-bar-label">Best Ask</span>
+      </div>
     </div>
   );
 }
+
 
 interface MergedRow {
   price: number;
@@ -370,9 +362,8 @@ export function TradingScreen({
         )}
       </header>
 
-      <div className="trade-layout">
-        {!isSettled && (
-          <section className="ticket-panel">
+      {!isSettled && (
+        <section className="ticket-panel">
             <div className="ticket-heading">
               <p className="ticket-kicker">Trade Ticket</p>
               <h2>{actionLabel}</h2>
@@ -380,74 +371,60 @@ export function TradingScreen({
 
             <div className="ticket-toggle-group">
               <span className="ticket-label">Action</span>
-              <div className="segmented-control">
-                <button
-                  type="button"
-                  className={tradeDirection === "buy" ? "segment active" : "segment"}
-                  aria-pressed={tradeDirection === "buy"}
-                  onClick={() => setTradeDirection("buy")}
-                >
+              <ToggleGroup.Root
+                type="single"
+                value={tradeDirection}
+                onValueChange={(v) => { if (v) setTradeDirection(v as TradeDirection); }}
+                className="segmented-control"
+              >
+                <ToggleGroup.Item value="buy" className="segment">
                   Buy
-                </button>
-                <button
-                  type="button"
-                  className={tradeDirection === "sell" ? "segment active" : "segment"}
-                  aria-pressed={tradeDirection === "sell"}
-                  onClick={() => setTradeDirection("sell")}
-                >
+                </ToggleGroup.Item>
+                <ToggleGroup.Item value="sell" className="segment">
                   Sell
-                </button>
-              </div>
+                </ToggleGroup.Item>
+              </ToggleGroup.Root>
             </div>
 
             <div className="ticket-toggle-group">
               <span className="ticket-label">Outcome</span>
-              <div className="segmented-control outcome-control">
-                <button
-                  type="button"
-                  className={selectedOutcome === "yes" ? "segment yes active" : "segment yes"}
-                  aria-pressed={selectedOutcome === "yes"}
-                  onClick={() => setSelectedOutcome("yes")}
-                >
+              <ToggleGroup.Root
+                type="single"
+                value={selectedOutcome}
+                onValueChange={(v) => { if (v) setSelectedOutcome(v as TradeOutcome); }}
+                className="segmented-control outcome-control"
+              >
+                <ToggleGroup.Item value="yes" className="segment yes">
                   Yes
-                </button>
-                <button
-                  type="button"
-                  className={selectedOutcome === "no" ? "segment no active" : "segment no"}
-                  aria-pressed={selectedOutcome === "no"}
-                  onClick={() => setSelectedOutcome("no")}
-                >
+                </ToggleGroup.Item>
+                <ToggleGroup.Item value="no" className="segment no">
                   No
-                </button>
-              </div>
+                </ToggleGroup.Item>
+              </ToggleGroup.Root>
             </div>
 
-            <div className="quote-strip">
-              <div className="quote-card">
-                <span>Best bid</span>
-                <strong>
-                  {selectedBestBid == null ? "No bid" : formatPrice(selectedBestBid)}
-                </strong>
-              </div>
-              <div className="quote-card">
-                <span>Best ask</span>
-                <strong>
-                  {selectedBestAsk == null ? "No ask" : formatPrice(selectedBestAsk)}
-                </strong>
-              </div>
-              <div className="quote-card">
-                <span>Spread</span>
-                <strong>{formatSpread(selectedBestBid, selectedBestAsk)}</strong>
-              </div>
-              <div className="quote-card highlight">
-                <span>{tradeDirection === "buy" ? "Est. cost" : "Est. proceeds"}</span>
-                <strong>
-                  {selectedTotalMicros == null
-                    ? "No quote"
-                    : formatMicrosTotal(selectedTotalMicros)}
-                </strong>
-              </div>
-            </div>
+            <SpreadBar
+              ladder={selectedLadder}
+              label={selectedOutcome === "yes" ? "Yes" : "No"}
+            />
+
+            <p className="cost-line">
+              <span className="cost-line-label">
+                {tradeDirection === "buy" ? "You pay" : "You receive"}
+              </span>
+              {selectedExecutionPrice != null ? (
+                <>
+                  <span className="cost-line-calc">
+                    {formatPrice(selectedExecutionPrice)} × {quantity}
+                  </span>
+                  <strong className="cost-line-total">
+                    {formatMicrosTotal(selectedTotalMicros!)}
+                  </strong>
+                </>
+              ) : (
+                <span className="cost-line-calc">No quote</span>
+              )}
+            </p>
 
             <div className="quantity-block">
               <div className="quantity-row">
@@ -463,19 +440,23 @@ export function TradingScreen({
                   disabled={executing}
                 />
               </div>
-              <div className="quantity-shortcuts">
+              <ToggleGroup.Root
+                type="single"
+                value={[1, 5, 10].includes(quantity) ? String(quantity) : ""}
+                onValueChange={(v) => { if (v) setQuantity(Number(v)); }}
+                className="quantity-shortcuts"
+              >
                 {[1, 5, 10].map((amount) => (
-                  <button
+                  <ToggleGroup.Item
                     key={amount}
-                    type="button"
-                    className={quantity === amount ? "shortcut active" : "shortcut"}
-                    onClick={() => setQuantity(amount)}
+                    value={String(amount)}
+                    className="shortcut"
                     disabled={executing}
                   >
                     {amount}
-                  </button>
+                  </ToggleGroup.Item>
                 ))}
-              </div>
+              </ToggleGroup.Root>
             </div>
 
             <button
@@ -505,40 +486,7 @@ export function TradingScreen({
             )}
             {lastError && <p className="trade-error">{lastError}</p>}
           </section>
-        )}
-
-        <section className="book-panel">
-          <div className="ticket-heading">
-            <p className="ticket-kicker">Live Market</p>
-            <h2>Bid / Ask</h2>
-          </div>
-          <div className="side-quote-row">
-            <SideQuoteCard
-              label="Yes"
-              ladder={yesLadder}
-              active={selectedOutcome === "yes"}
-            />
-            <SideQuoteCard
-              label="No"
-              ladder={noLadder}
-              active={selectedOutcome === "no"}
-            />
-          </div>
-
-          <div className="order-book">
-            <LadderView
-              label="Yes"
-              ladder={yesLadder}
-              active={selectedOutcome === "yes"}
-            />
-            <LadderView
-              label="No"
-              ladder={noLadder}
-              active={selectedOutcome === "no"}
-            />
-          </div>
-        </section>
-      </div>
+      )}
 
       {hasWinningTokens && onRedeem && (
         <div className="redeem-section">

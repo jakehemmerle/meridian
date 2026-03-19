@@ -55,8 +55,11 @@ describe("TradingScreen", () => {
     expect(screen.getAllByText("$0.62").length).toBeGreaterThan(0);
   });
 
-  it("displays No-side prices derived from the Yes book", () => {
+  it("displays No-side prices derived from the Yes book", async () => {
+    const user = userEvent.setup();
     render(<TradingScreen {...baseProps} />);
+    // Switch to No outcome to see No-side spread bar
+    await user.click(screen.getByRole("radio", { name: "No" }));
     // No bids: inverted from Yes asks. Best No bid = $0.38
     expect(screen.getAllByText("$0.38").length).toBeGreaterThan(0);
     // No asks: inverted from Yes bids. Best No ask = $0.40
@@ -67,10 +70,10 @@ describe("TradingScreen", () => {
 
   it("renders buy/sell and yes/no controls with a primary action", () => {
     render(<TradingScreen {...baseProps} />);
-    expect(screen.getByRole("button", { name: /^Buy$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Sell$/i })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /^Yes$/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /^No$/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("radio", { name: /^Buy$/i })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^Sell$/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("radio", { name: /^Yes$/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("radio", { name: /^No$/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Buy Yes/i })).toBeInTheDocument();
   });
 
@@ -79,7 +82,7 @@ describe("TradingScreen", () => {
     render(<TradingScreen {...baseProps} onIntent={onIntent} />);
     const user = userEvent.setup();
 
-    await user.click(screen.getAllByRole("button", { name: /^No$/i })[0]);
+    await user.click(screen.getByRole("radio", { name: /^No$/i }));
     await user.click(screen.getByRole("button", { name: /Buy No/i }));
     expect(onIntent).toHaveBeenCalledWith("buy-no");
   });
@@ -89,15 +92,15 @@ describe("TradingScreen", () => {
   it("disables the primary action when selling Yes with no Yes position", async () => {
     render(<TradingScreen {...baseProps} position={null} />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^Sell$/i }));
+    await user.click(screen.getByRole("radio", { name: /^Sell$/i }));
     expect(screen.getByRole("button", { name: /Sell Yes/i })).toBeDisabled();
   });
 
   it("disables the primary action when selling No with no No position", async () => {
     render(<TradingScreen {...baseProps} position={null} />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^Sell$/i }));
-    await user.click(screen.getAllByRole("button", { name: /^No$/i })[0]);
+    await user.click(screen.getByRole("radio", { name: /^Sell$/i }));
+    await user.click(screen.getByRole("radio", { name: /^No$/i }));
     expect(screen.getByRole("button", { name: /Sell No/i })).toBeDisabled();
   });
 
@@ -105,7 +108,7 @@ describe("TradingScreen", () => {
     const position: UserPosition = { yesQuantity: 5n, noQuantity: 0n };
     render(<TradingScreen {...baseProps} position={position} />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^Sell$/i }));
+    await user.click(screen.getByRole("radio", { name: /^Sell$/i }));
     expect(screen.getByRole("button", { name: /Sell Yes/i })).toBeEnabled();
   });
 
@@ -113,15 +116,15 @@ describe("TradingScreen", () => {
     const position: UserPosition = { yesQuantity: 0n, noQuantity: 3n };
     render(<TradingScreen {...baseProps} position={position} />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^Sell$/i }));
-    await user.click(screen.getAllByRole("button", { name: /^No$/i })[0]);
+    await user.click(screen.getByRole("radio", { name: /^Sell$/i }));
+    await user.click(screen.getByRole("radio", { name: /^No$/i }));
     expect(screen.getByRole("button", { name: /Sell No/i })).toBeEnabled();
   });
 
   it("shows guidance text for disabled sell actions", async () => {
     render(<TradingScreen {...baseProps} position={null} />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^Sell$/i }));
+    await user.click(screen.getByRole("radio", { name: /^Sell$/i }));
     expect(screen.getByText("You need Yes tokens to sell.")).toBeInTheDocument();
   });
 
@@ -137,7 +140,7 @@ describe("TradingScreen", () => {
     const position: UserPosition = { yesQuantity: 5n, noQuantity: 0n };
     render(<TradingScreen {...baseProps} position={position} />);
     const user = userEvent.setup();
-    await user.click(screen.getAllByRole("button", { name: /^No$/i })[0]);
+    await user.click(screen.getByRole("radio", { name: /^No$/i }));
     expect(screen.getByRole("button", { name: /Buy No/i })).toBeDisabled();
   });
 
@@ -145,7 +148,7 @@ describe("TradingScreen", () => {
     const position: UserPosition = { yesQuantity: 5n, noQuantity: 0n };
     render(<TradingScreen {...baseProps} position={position} />);
     const user = userEvent.setup();
-    await user.click(screen.getAllByRole("button", { name: /^No$/i })[0]);
+    await user.click(screen.getByRole("radio", { name: /^No$/i }));
     expect(screen.getByText("Sell your Yes tokens first.")).toBeInTheDocument();
   });
 
@@ -159,14 +162,14 @@ describe("TradingScreen", () => {
     expect(screen.getByRole("button", { name: /Buy Yes/i })).toBeDisabled();
 
     // Sell No is enabled — clicking it triggers onIntent
-    await user.click(screen.getByRole("button", { name: /^Sell$/i }));
-    await user.click(screen.getAllByRole("button", { name: /^No$/i })[0]);
+    await user.click(screen.getByRole("radio", { name: /^Sell$/i }));
+    await user.click(screen.getByRole("radio", { name: /^No$/i }));
     await user.click(screen.getByRole("button", { name: /Sell No/i }));
     expect(onIntent).toHaveBeenCalledWith("sell-no");
 
     // Constraints are still applied (position hasn't changed in props)
-    await user.click(screen.getByRole("button", { name: /^Buy$/i }));
-    await user.click(screen.getAllByRole("button", { name: /^Yes$/i })[0]);
+    await user.click(screen.getByRole("radio", { name: /^Buy$/i }));
+    await user.click(screen.getByRole("radio", { name: /^Yes$/i }));
     expect(screen.getByRole("button", { name: /Buy Yes/i })).toBeDisabled();
   });
 
@@ -199,7 +202,7 @@ describe("TradingScreen", () => {
     render(<TradingScreen {...baseProps} position={null} onIntent={onIntent} />);
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: /^Sell$/i }));
+    await user.click(screen.getByRole("radio", { name: /^Sell$/i }));
     const sellYesBtn = screen.getByRole("button", { name: /Sell Yes/i });
     expect(sellYesBtn).toBeDisabled();
 
@@ -220,7 +223,7 @@ describe("TradingScreen", () => {
     const user = userEvent.setup();
 
     // Click Buy No to switch perspective
-    await user.click(screen.getAllByRole("button", { name: /^No$/i })[0]);
+    await user.click(screen.getByRole("radio", { name: /^No$/i }));
 
     expect(
       screen.getByText(/You pay .+\. You win \$1\.00 if AAPL closes below/),
