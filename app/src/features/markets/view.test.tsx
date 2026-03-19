@@ -45,8 +45,8 @@ const sampleMarkets: MarketSummary[] = [
 describe("MarketDiscoveryList", () => {
   it("renders market cards with ticker and price", () => {
     render(<MarketDiscoveryList markets={sampleMarkets} loading={false} />);
-    expect(screen.getByText(/BTC-50K/)).toBeInTheDocument();
-    expect(screen.getByText(/ETH-4K/)).toBeInTheDocument();
+    expect(screen.getByTestId("market-item-BTC-50K")).toBeInTheDocument();
+    expect(screen.getByTestId("market-item-ETH-4K")).toBeInTheDocument();
   });
 
   it("shows empty message when no markets", () => {
@@ -69,6 +69,6 @@ describe("MarketDiscoveryList", () => {
       }),
     ];
     render(<MarketDiscoveryList markets={marketWithNullPrice} loading={false} />);
-    expect(screen.getByText(/SOL-200/)).toBeInTheDocument();
+    expect(screen.getByTestId("market-item-SOL-200")).toBeInTheDocument();
   });
 });

@@ -1,6 +1,8 @@
 "use client";
 
+import { Card, Flex, Text } from "@radix-ui/themes";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletButton } from "../../components/wallet-button";
 
 function truncateAddress(address: string): string {
   if (address.length <= 8) return address;
@@ -12,26 +14,42 @@ export function WalletStatusPanel() {
 
   if (connecting) {
     return (
-      <section className="panel">
-        <h2>Wallet</h2>
-        <p>Connecting...</p>
-      </section>
+      <Card>
+        <Flex direction="column" gap="2">
+          <Text size="2" weight="bold">
+            Wallet
+          </Text>
+          <Text size="2" color="gray">
+            Connecting...
+          </Text>
+        </Flex>
+      </Card>
     );
   }
 
   if (connected && publicKey) {
     return (
-      <section className="panel">
-        <h2>Wallet</h2>
-        <p data-testid="wallet-address">{truncateAddress(publicKey.toBase58())}</p>
-      </section>
+      <Card>
+        <Flex direction="column" gap="2">
+          <Text size="2" weight="bold">
+            Wallet
+          </Text>
+          <Text size="2" data-testid="wallet-address">
+            {truncateAddress(publicKey.toBase58())}
+          </Text>
+        </Flex>
+      </Card>
     );
   }
 
   return (
-    <section className="panel">
-      <h2>Wallet</h2>
-      <p>Connect Wallet</p>
-    </section>
+    <Card>
+      <Flex direction="column" gap="3" align="start">
+        <Text size="2" weight="bold">
+          Wallet
+        </Text>
+        <WalletButton />
+      </Flex>
+    </Card>
   );
 }

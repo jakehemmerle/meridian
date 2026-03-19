@@ -75,7 +75,7 @@ describe("PortfolioPositionList", () => {
     expect(screen.getByText(/-\$1\.00/)).toBeInTheDocument();
   });
 
-  it("shows '--' for P&L when mark price is not available", () => {
+  it("shows 'Unavailable' for P&L when mark price is not available", () => {
     const positions: PortfolioPosition[] = [
       {
         marketId: "m1",
@@ -87,7 +87,7 @@ describe("PortfolioPositionList", () => {
       },
     ];
     render(<PortfolioPositionList positions={positions} />);
-    expect(screen.getByText("--")).toBeInTheDocument();
+    expect(screen.getByTestId("pnl")).toHaveTextContent("Unavailable");
   });
 });
 

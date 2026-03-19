@@ -1,5 +1,6 @@
 "use client";
 
+import { Card, Text } from "@radix-ui/themes";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletButton } from "../../components/wallet-button";
 import { HistoryList } from "../../features/history";
@@ -10,19 +11,24 @@ export default function HistoryPage() {
   const { connected } = useWallet();
   const { events, loading, error } = useHistoryEvents();
   const hero = (
-    <section className="pageHero">
-      <h1>History</h1>
-      <p>Recent trades and redemptions for the connected wallet on Meridian devnet.</p>
-    </section>
+    <Card className="hero-card">
+      <Text size="1" color="gray">
+        HISTORY
+      </Text>
+      <h1 className="page-title">Execution history</h1>
+      <p className="page-copy">
+        Recent trades and redemptions for the connected wallet on Meridian devnet.
+      </p>
+    </Card>
   );
 
   if (!connected) {
     return (
       <PageShell hero={hero}>
-        <section className="panel">
-          <p>Connect your wallet to view trade history.</p>
+        <Card>
+          <p className="page-copy">Connect your wallet to view trade history.</p>
           <WalletButton />
-        </section>
+        </Card>
       </PageShell>
     );
   }
@@ -30,9 +36,9 @@ export default function HistoryPage() {
   if (loading) {
     return (
       <PageShell hero={hero}>
-        <section className="panel">
-          <p>Loading history...</p>
-        </section>
+        <Card>
+          <p className="page-copy">Loading history...</p>
+        </Card>
       </PageShell>
     );
   }
@@ -40,10 +46,9 @@ export default function HistoryPage() {
   return (
     <PageShell hero={hero}>
       {error ? (
-        <section className="panel">
-          <h2>History</h2>
-          <p>{error}</p>
-        </section>
+        <Card>
+          <p className="page-copy">{error}</p>
+        </Card>
       ) : (
         <HistoryList events={events} />
       )}

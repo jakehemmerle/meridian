@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { Card, Text } from "@radix-ui/themes";
 import { useWallet } from "@solana/wallet-adapter-react";
 
 import { WalletButton } from "../../../components/wallet-button";
@@ -45,16 +46,21 @@ export default function TradePage() {
     return (
       <PageShell
         hero={
-          <section className="pageHero">
-            <h1>Trade</h1>
-            <p>Connect your wallet to open the selected market and trade on devnet.</p>
-          </section>
+          <Card className="hero-card">
+            <Text size="1" color="gray">
+              TRADE
+            </Text>
+            <h1 className="page-title">Connect to trade</h1>
+            <p className="page-copy">
+              Open the selected market and trade on devnet after connecting a wallet.
+            </p>
+          </Card>
         }
       >
-        <section className="panel">
-          <p>Connect your wallet to trade.</p>
+        <Card>
+          <p className="page-copy">Connect your wallet to trade.</p>
           <WalletButton />
-        </section>
+        </Card>
       </PageShell>
     );
   }
@@ -63,15 +69,18 @@ export default function TradePage() {
     return (
       <PageShell
         hero={
-          <section className="pageHero">
-            <h1>Trade</h1>
-            <p>Loading market data...</p>
-          </section>
+          <Card className="hero-card">
+            <Text size="1" color="gray">
+              TRADE
+            </Text>
+            <h1 className="page-title">Loading market</h1>
+            <p className="page-copy">Loading market data...</p>
+          </Card>
         }
       >
-        <section className="panel">
-          <p>Loading market data...</p>
-        </section>
+        <Card>
+          <p className="page-copy">Loading market data...</p>
+        </Card>
       </PageShell>
     );
   }

@@ -1,20 +1,23 @@
+import { Button, Card, Flex, Heading, Text } from "@radix-ui/themes";
+
 import type { PortfolioPosition } from "./model";
-import type { MarketPhase, MarketOutcome } from "../markets/model";
+import type { MarketOutcome, MarketPhase } from "../markets/model";
 import {
-  formatTokenAmount,
-  formatUsdSigned,
-  formatUsdBigint,
   PRICE_UNIT,
+  formatTokenAmount,
+  formatUsdBigint,
+  formatUsdSigned,
 } from "../../lib/format";
 
 function computePnl(position: PortfolioPosition): string {
-  if (position.markPriceMicros === null) return "--";
+  if (position.markPriceMicros === null || position.averageEntryPriceMicros <= 0n) {
+    return "Unavailable";
+  }
+
   const diff = position.markPriceMicros - position.averageEntryPriceMicros;
   const pnl = (diff * position.quantity) / BigInt(PRICE_UNIT);
   return formatUsdSigned(pnl);
 }
-
-// --- PortfolioPositionList ---
 
 interface PortfolioPositionListProps {
   positions: PortfolioPosition[];
@@ -23,31 +26,74 @@ interface PortfolioPositionListProps {
 export function PortfolioPositionList({ positions }: PortfolioPositionListProps) {
   if (positions.length === 0) {
     return (
-      <section className="panel">
-        <h2>Portfolio</h2>
-        <p>No active positions</p>
-      </section>
+      <Card>
+        <Flex direction="column" gap="2">
+          <Heading as="h2" size="5">
+            Portfolio
+          </Heading>
+          <Text size="2" color="gray">
+            No active positions
+          </Text>
+        </Flex>
+      </Card>
     );
   }
 
   return (
-    <section className="panel">
-      <h2>Portfolio</h2>
-      <ul>
-        {positions.map((pos) => (
-          <li key={`${pos.marketId}-${pos.side}`} data-testid={`portfolio-item-${pos.ticker}`}>
-            <span>{pos.ticker}</span>
-            <span>{pos.side === "yes" ? "Yes" : "No"}</span>
-            <span>{formatTokenAmount(pos.quantity)}</span>
-            <span data-testid="pnl">{computePnl(pos)}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <Card>
+      <Flex direction="column" gap="4">
+        <div>
+          <Text size="1" color="gray">
+            POSITIONS
+          </Text>
+          <Heading as="h2" size="6">
+            Active inventory
+          </Heading>
+        </div>
+
+        <div className="portfolio-table-wrap">
+          <table className="portfolio-table">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Side</th>
+                <th>Qty</th>
+                <th>Entry</th>
+                <th>Mark</th>
+                <th>P&amp;L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {positions.map((position) => (
+                <tr
+                  key={`${position.marketId}-${position.side}`}
+                  data-testid={`portfolio-item-${position.ticker}`}
+                >
+                  <td>{position.ticker}</td>
+                  <td>{position.side === "yes" ? "Yes" : "No"}</td>
+                  <td className="metric-mono">{formatTokenAmount(position.quantity)}</td>
+                  <td className="metric-mono">
+                    {position.averageEntryPriceMicros > 0n
+                      ? formatUsdBigint(position.averageEntryPriceMicros)
+                      : "Unavailable"}
+                  </td>
+                  <td className="metric-mono">
+                    {position.markPriceMicros != null
+                      ? formatUsdBigint(position.markPriceMicros)
+                      : "Unavailable"}
+                  </td>
+                  <td data-testid="pnl" className="metric-mono">
+                    {computePnl(position)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Flex>
+    </Card>
   );
 }
-
-// --- RedeemPanel ---
 
 interface RedeemPanelProps {
   marketPhase: MarketPhase;
@@ -76,9 +122,9 @@ export function RedeemPanel({
 
   if (!isWinner) {
     return (
-      <section className="panel">
-        <p>No payout</p>
-      </section>
+      <Card>
+        <Text size="2">No payout</Text>
+      </Card>
     );
   }
 
@@ -86,15 +132,17 @@ export function RedeemPanel({
   const redeemablePairs = quantity / BigInt(PRICE_UNIT);
 
   return (
-    <section className="panel">
-      <p>Expected payout: {payoutDisplay}</p>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() => onRedeem(redeemablePairs)}
-      >
-        Redeem
-      </button>
-    </section>
+    <Card>
+      <Flex direction="column" gap="3" align="start">
+        <Text size="2">Expected payout: {payoutDisplay}</Text>
+        <Button
+          type="button"
+          disabled={pending}
+          onClick={() => onRedeem(redeemablePairs)}
+        >
+          Redeem
+        </Button>
+      </Flex>
+    </Card>
   );
 }

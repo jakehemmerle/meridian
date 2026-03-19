@@ -59,15 +59,18 @@ function classifyTradeEvent(
   yesDelta: bigint,
   noDelta: bigint,
   timestampMs: number,
+  signature: string,
 ): TradeEvent | null {
   if (yesDelta > 0n && usdcDelta < 0n) {
     return {
       type: "trade",
       ticker: market.ticker,
+      marketId: market.marketId,
       side: "buy-yes",
       quantity: Number(yesDelta / BigInt(PRICE_UNIT)),
       priceMicros: Number((-usdcDelta) / (yesDelta / BigInt(PRICE_UNIT))),
       timestampMs,
+      signature,
     };
   }
 
@@ -75,10 +78,12 @@ function classifyTradeEvent(
     return {
       type: "trade",
       ticker: market.ticker,
+      marketId: market.marketId,
       side: "sell-yes",
       quantity: Number((-yesDelta) / BigInt(PRICE_UNIT)),
       priceMicros: Number(usdcDelta / ((-yesDelta) / BigInt(PRICE_UNIT))),
       timestampMs,
+      signature,
     };
   }
 
@@ -86,10 +91,12 @@ function classifyTradeEvent(
     return {
       type: "trade",
       ticker: market.ticker,
+      marketId: market.marketId,
       side: "buy-no",
       quantity: Number(noDelta / BigInt(PRICE_UNIT)),
       priceMicros: Number((-usdcDelta) / (noDelta / BigInt(PRICE_UNIT))),
       timestampMs,
+      signature,
     };
   }
 
@@ -97,10 +104,12 @@ function classifyTradeEvent(
     return {
       type: "trade",
       ticker: market.ticker,
+      marketId: market.marketId,
       side: "sell-no",
       quantity: Number((-noDelta) / BigInt(PRICE_UNIT)),
       priceMicros: Number(usdcDelta / ((-noDelta) / BigInt(PRICE_UNIT))),
       timestampMs,
+      signature,
     };
   }
 
@@ -138,14 +147,23 @@ function parseHistoryEvent(
     return {
       type: "redeem",
       ticker: market.ticker,
+      marketId: market.marketId,
       payoutMicros: Number(usdcDelta),
       quantity: Number(burnedQuantity / BigInt(PRICE_UNIT)),
       timestampMs: blockTimeMs,
+      signature: sig.signature,
     };
   }
 
   if (logs.some((line) => line.includes("Instruction: TradeYes"))) {
-    return classifyTradeEvent(market, usdcDelta, yesDelta, noDelta, blockTimeMs);
+    return classifyTradeEvent(
+      market,
+      usdcDelta,
+      yesDelta,
+      noDelta,
+      blockTimeMs,
+      sig.signature,
+    );
   }
 
   return null;
