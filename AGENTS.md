@@ -1,24 +1,24 @@
-# Peaksix Agent Guide
+# Meridian Agent Guide
 
-This file supplements the workspace-level [AGENTS.md](/Users/jake/codebases/gauntlet/hiring-partners/AGENTS.md).
+This file supplements the workspace-level [AGENTS.md](../../AGENTS.md).
 
-The root policy still applies in full. This file only adds `peaksix`-specific onboarding and
+The root policy still applies in full. This file only adds `Meridian`-specific onboarding and
 execution guidance.
 
 ## Scope
 
-- The active implementation repo is `/Users/jake/codebases/gauntlet/hiring-partners/peaksix`
-- The parent repo is only a container and tracks `peaksix` as a submodule
+- The active implementation repo is this worktree root (`.`)
+- If you are working from a parent container repo, treat this checkout as the source of truth
 - Do not treat the parent repo as the main codebase for Meridian work
 
 ## Read First
 
-Before starting any task in `peaksix`, read these in order:
+Before starting any task in this repo, read these in order:
 
-1. [AGENTS.md](/Users/jake/codebases/gauntlet/hiring-partners/AGENTS.md)
-2. [requirements.md](/Users/jake/codebases/gauntlet/hiring-partners/peaksix/requirements.md)
-3. [research-rubric.md](/Users/jake/codebases/gauntlet/hiring-partners/peaksix/research-rubric.md)
-4. [research-codex.md](/Users/jake/codebases/gauntlet/hiring-partners/peaksix/research-codex.md)
+1. [AGENTS.md](../../AGENTS.md)
+2. [requirements.md](./requirements.md)
+3. [research-rubric.md](./research-rubric.md)
+4. [research-codex.md](./research-codex.md)
 
 These documents contain the current product requirements, resolved architecture decisions, and
 research-backed implementation assumptions.
@@ -91,7 +91,7 @@ cross-contamination in practice.
 
 ## Session Close
 
-Before ending a coding session in `peaksix`:
+Before ending a coding session in this repo:
 
 0. Delete your `.reservations/{your-agent-name}.json`, commit, and push the deletion
 1. Run the relevant tests
