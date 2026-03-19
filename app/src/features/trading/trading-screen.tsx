@@ -283,8 +283,17 @@ export function TradingScreen({
   const constraints = getPositionConstraints(position);
   const nowUtc = Math.floor(Date.now() / 1000);
   const countdown = getCountdownSeconds(marketCloseUtc, nowUtc);
-  const isClosed = countdown <= 0;
-  const isSettled = phase === "Settled";
+  const effectivePhase =
+    phase ?? (countdown <= 0 ? "Closed" : "Trading");
+  const isClosed = effectivePhase === "Closed";
+  const isSettled = effectivePhase === "Settled";
+  const statusLabel = isSettled
+    ? `Settled: ${outcome === "Yes" ? "YES" : "NO"}`
+    : isClosed
+      ? "Market Closed"
+      : countdown > 0
+        ? `Closes in ${formatCountdown(countdown)}`
+        : "Trading";
   const selectedIntent = getIntentForSelection(tradeDirection, selectedOutcome);
   const selectedLadder = selectedOutcome === "yes" ? yesLadder : noLadder;
   const selectedBestBid = selectedLadder?.bids[0]?.priceMicros ?? null;
@@ -352,11 +361,7 @@ export function TradingScreen({
               data-testid="countdown-timer"
               className={`phase-pill ${isSettled ? "settled" : isClosed ? "closed" : "live"}`}
             >
-              {isSettled
-                ? `Settled: ${outcome === "Yes" ? "YES" : "NO"}`
-                : isClosed
-                  ? "Market Closed"
-                  : `Closes in ${formatCountdown(countdown)}`}
+              {statusLabel}
             </span>
           </Flex>
 

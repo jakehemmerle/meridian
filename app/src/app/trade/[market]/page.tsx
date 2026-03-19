@@ -52,7 +52,7 @@ export default function TradePage() {
             </Text>
             <h1 className="page-title">Connect to trade</h1>
             <p className="page-copy">
-              Open the selected market and trade on devnet after connecting a wallet.
+              Open the selected market and trade after connecting a wallet.
             </p>
           </Card>
         }

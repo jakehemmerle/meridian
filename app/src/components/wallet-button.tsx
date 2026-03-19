@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Button } from "@radix-ui/themes";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
@@ -10,8 +11,17 @@ function truncateAddress(address: string): string {
 }
 
 export function WalletButton() {
-  const { connected, connecting, disconnect, publicKey } = useWallet();
+  const [mounted, setMounted] = useState(false);
+  const { connected, connecting, connect, disconnect, publicKey, wallet } = useWallet();
   const { setVisible } = useWalletModal();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <Button type="button">Connect Wallet</Button>;
+  }
 
   if (connected && publicKey) {
     return (
@@ -28,10 +38,25 @@ export function WalletButton() {
     );
   }
 
+  async function handleConnect(): Promise<void> {
+    if (!wallet) {
+      setVisible(true);
+      return;
+    }
+
+    try {
+      await connect();
+    } catch {
+      setVisible(true);
+    }
+  }
+
   return (
     <Button
       type="button"
-      onClick={() => setVisible(true)}
+      onClick={() => {
+        void handleConnect();
+      }}
       disabled={connecting}
     >
       {connecting ? "Connecting..." : "Connect Wallet"}

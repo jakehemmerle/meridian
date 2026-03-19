@@ -184,6 +184,20 @@ describe("TradingScreen", () => {
     expect(screen.getByText("Market Closed")).toBeInTheDocument();
   });
 
+  it("prefers the explicit trading phase over a past close timestamp", () => {
+    const pastClose = Math.floor(Date.now() / 1000) - 100;
+    render(
+      <TradingScreen
+        {...baseProps}
+        marketCloseUtc={pastClose}
+        phase="Trading"
+      />,
+    );
+
+    expect(screen.queryByText("Market Closed")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Trading").length).toBeGreaterThan(0);
+  });
+
   // --- Payoff display ---
 
   it("displays payoff information for the selected intent", () => {

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Badge, Box, Container, Flex, TabNav, Text } from "@radix-ui/themes";
 
 import { WalletButton } from "./wallet-button";
+import { readPublicMeridianEnv } from "../lib/env/public";
 
 const NAV_ITEMS = [
   { href: "/", label: "Markets" },
@@ -14,6 +15,11 @@ const NAV_ITEMS = [
 
 export function NavBar() {
   const pathname = usePathname();
+  const cluster = readPublicMeridianEnv().cluster;
+  const clusterLabel =
+    cluster === "mainnet-beta"
+      ? "Mainnet"
+      : cluster.charAt(0).toUpperCase() + cluster.slice(1);
 
   return (
     <header className="app-header" data-testid="nav-bar">
@@ -32,7 +38,7 @@ export function NavBar() {
               </Text>
             </Link>
             <Badge color="gray" variant="soft">
-              Devnet
+              {clusterLabel}
             </Badge>
           </Flex>
 
